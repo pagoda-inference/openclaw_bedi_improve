@@ -1,0 +1,10 @@
+{
+  "id": "market-research",
+  "name": "Market Research",
+  "description": "市场调研能力扩展：任务管理、数据处理、报告生成、深度浏览器",
+  "version": "1.0.0",
+  "kind": ["capability"],
+  "contracts": {
+    "embeddedExtensionFactories": ["market-research"]
+  }
+}

@@ -12,51 +12,123 @@ export type DeepBrowserAction =
   | "operate"
   | "observe"
   | "remember"
-  | "collect";
+  | "collect"
+  | "plan"
+  | "network";
 
 export type DeepBrowserParams = {
   action: DeepBrowserAction;
   url?: string;
-  selector?: string;
+  target?: string | number;
   text?: string;
-  direction?: "up" | "down" | "top" | "bottom";
+  option?: string;
+  direction?: "up" | "down";
+  amount?: number;
   timeout?: number;
   save_to?: string;
-  selectors?: {
-    title?: string;
-    content?: string;
-    metadata?: string;
-    list_items?: string;
-    pagination?: string;
-  };
-  operation_type?: "click" | "type" | "scroll" | "wait" | "navigate";
-  expected_change?: string;
+  selector?: string;
+  css?: string;
+  limit?: number;
+  nth?: number;
+  key?: string;
+  js?: string;
+  filter?: string;
   site_pattern_id?: string;
+  task_context?: {
+    task_id: string;
+    sub_topic: string;
+    depth: number;
+    max_depth: number;
+  };
 };
 
-type PageAnalysis = {
-  page_type: string;
-  layout_pattern: string;
-  content_structure: string;
-  interactive_elements: Array<{ selector: string; type: string; label: string }>;
-  data_regions: Array<{ selector: string; type: string; description: string }>;
-  pagination?: { type: string; selector: string };
+type ElementInfo = {
+  ref: number;
+  tag: string;
+  role?: string;
+  text?: string;
+  attrs?: Record<string, string>;
+  visible: boolean;
+};
+
+type PageSnapshot = {
+  url: string;
+  title: string;
+  elements: ElementInfo[];
+  interactive_count: number;
+  compounds: number[];
+  scroll_position: { x: number; y: number };
+  has_more_below: boolean;
 };
 
 type SitePattern = {
   id: string;
   domain: string;
-  page_type: string;
-  layout_pattern: string;
+  page_types: Record<string, PageTypePattern>;
+  navigation_flows: NavigationFlow[];
+  data_endpoints: DataEndpoint[];
   selectors: Record<string, string>;
-  pagination?: { type: string; selector: string };
   learned_at: string;
+  last_used: string;
   success_count: number;
+  failure_count: number;
+};
+
+type PageTypePattern = {
+  type: string;
+  indicators: string[];
+  data_regions: Array<{ selector: string; type: string }>;
+  pagination?: { type: string; selector: string };
+};
+
+type NavigationFlow = {
+  name: string;
+  steps: Array<{
+    action: string;
+    target: string;
+    wait_for?: string;
+    expected_change: string;
+  }>;
+  purpose: string;
+};
+
+type DataEndpoint = {
+  url_pattern: string;
+  method: string;
+  shape: string;
+  purpose: string;
+};
+
+type BrowsingPlan = {
+  id: string;
+  goal: string;
+  current_depth: number;
+  max_depth: number;
+  steps: PlanStep[];
+  completed_steps: string[];
+  current_step: string | null;
+  collected_data: Array<{ step: string; data: unknown }>;
+  created_at: string;
+  status: string;
+};
+
+type PlanStep = {
+  id: string;
+  description: string;
+  action: string;
+  params: Record<string, unknown>;
+  dependencies: string[];
+  status: "pending" | "in_progress" | "completed" | "failed";
+  retry_count: number;
+  max_retries: number;
+  expected_outcome: string;
+  executed_at?: string;
+  result?: string;
 };
 
 export class DeepBrowserTool {
   name = "deep_browser";
-  description = "深度浏览器操作：理解页面结构、执行复杂交互、观察变化、积累记忆";
+  description = "深度浏览器：理解网站系统、规划浏览路径、执行多步交互、积累记忆（MD格式）";
 
   definition = {
     name: this.name,
@@ -66,37 +138,29 @@ export class DeepBrowserTool {
       properties: {
         action: {
           type: "string",
-          enum: ["understand", "operate", "observe", "remember", "collect"],
-          description: "操作类型：understand(理解页面)、operate(执行操作)、observe(观察变化)、remember(记录记忆)、collect(采集内容)",
+          enum: ["understand", "operate", "observe", "remember", "collect", "plan", "network"],
+          description: "操作类型",
         },
-        url: { type: "string", description: "URL（open/collect 时使用）" },
-        selector: { type: "string", description: "CSS 选择器" },
-        text: { type: "string", description: "输入文本（type 时使用）" },
-        direction: {
-          type: "string",
-          enum: ["up", "down", "top", "bottom"],
-          description: "滚动方向",
-        },
+        url: { type: "string", description: "URL" },
+        target: { description: "目标元素（ref 数字或 CSS 选择器）" },
+        text: { type: "string", description: "输入文本" },
+        option: { type: "string", description: "选择选项" },
+        direction: { type: "string", enum: ["up", "down"], description: "滚动方向" },
+        amount: { type: "number", description: "滚动量（像素）" },
         timeout: { type: "number", description: "超时时间（毫秒）" },
         save_to: { type: "string", description: "保存路径" },
-        selectors: {
+        selector: { type: "string", description: "CSS 选择器" },
+        site_pattern_id: { type: "string", description: "网站模式 ID（域名）" },
+        task_context: {
           type: "object",
-          description: "内容提取选择器",
+          description: "任务上下文",
           properties: {
-            title: { type: "string" },
-            content: { type: "string" },
-            metadata: { type: "string" },
-            list_items: { type: "string" },
-            pagination: { type: "string" },
+            task_id: { type: "string" },
+            sub_topic: { type: "string" },
+            depth: { type: "number" },
+            max_depth: { type: "number" },
           },
         },
-        operation_type: {
-          type: "string",
-          enum: ["click", "type", "scroll", "wait", "navigate"],
-          description: "操作类型（operate 时使用）",
-        },
-        expected_change: { type: "string", description: "预期变化（observe 时使用）" },
-        site_pattern_id: { type: "string", description: "网站模式 ID" },
       },
       required: ["action"],
     } as unknown as TSchema,
@@ -108,6 +172,8 @@ export class DeepBrowserTool {
     _signal?: AbortSignal,
   ): Promise<AgentToolResult<unknown>> {
     try {
+      await this.ensureMemoryDirs();
+
       switch (params.action) {
         case "understand":
           return await this.understandPage(params);
@@ -119,6 +185,10 @@ export class DeepBrowserTool {
           return await this.saveMemory(params);
         case "collect":
           return await this.collectContent(params);
+        case "plan":
+          return await this.planBrowsing(params);
+        case "network":
+          return await this.captureNetwork(params);
         default:
           return { ok: false, error: "Unknown action" };
       }
@@ -130,120 +200,233 @@ export class DeepBrowserTool {
     }
   }
 
+  private async ensureMemoryDirs(): Promise<void> {
+    await fs.mkdir(MEMORY_BASE_DIR, { recursive: true });
+    await fs.mkdir(path.join(MEMORY_BASE_DIR, "patterns"), { recursive: true });
+    await fs.mkdir(path.join(MEMORY_BASE_DIR, "plans"), { recursive: true });
+  }
+
   private async understandPage(params: DeepBrowserParams): Promise<AgentToolResult<unknown>> {
-    if (!params.url) {
-      return { ok: false, error: "URL is required for understand action" };
+    if (params.url) {
+      await this.runOpenCLI(["browser", "open", params.url]);
     }
 
-    const existingPattern = await this.findSitePattern(params.url);
+    const stateResult = await this.runOpenCLI(["browser", "state"]);
+    const state = this.parseStateOutput(stateResult);
+
+    const urlResult = await this.runOpenCLI(["browser", "get", "url"]);
+    const currentUrl = urlResult.trim();
+    const domain = params.url ? new URL(params.url).hostname : 
+                   currentUrl ? new URL(currentUrl).hostname : null;
+
+    let existingPattern: SitePattern | null = null;
+    if (domain) {
+      existingPattern = await this.readSitePatternMD(domain);
+    }
+
+    const analysis = {
+      page_type: this.detectPageType(state),
+      layout_pattern: this.detectLayoutPattern(state),
+      interactive_elements: state.elements.filter((e) => e.visible && this.isInteractive(e)),
+      data_regions: this.detectDataRegions(state),
+      pagination: this.detectPagination(state),
+      form_purposes: this.detectFormPurposes(state),
+    };
+
     if (existingPattern) {
+      const pageType = analysis.page_type;
+      const cachedPageType = existingPattern.page_types[pageType];
+      
       return {
         ok: true,
         result: {
           source: "memory",
-          page_analysis: existingPattern,
-          message: "Loaded from cached site pattern",
+          cached_pattern: existingPattern,
+          cached_page_type: cachedPageType,
+          current_state: state,
+          analysis,
+          recommendation: cachedPageType 
+            ? `使用缓存的选择器: ${JSON.stringify(cachedPageType.data_regions)}`
+            : "发现新页面类型，建议探索后保存",
         },
       };
     }
 
-    const html = await this.fetchPageContent(params.url);
-    const analysis = this.analyzePageStructure(html, params.url);
+    const networkResult = await this.runOpenCLI(["browser", "network"]);
+    const network = this.parseNetworkOutput(networkResult);
 
     return {
       ok: true,
       result: {
         source: "analysis",
-        page_analysis: analysis,
-        message: "Page structure analyzed",
+        state,
+        analysis,
+        network_summary: network.slice(0, 10),
+        suggested_next_steps: this.suggestNextSteps(analysis),
+        suggestion: "建议使用 remember 保存网站模式",
       },
     };
   }
 
   private async executeOperation(params: DeepBrowserParams): Promise<AgentToolResult<unknown>> {
-    const operationType = params.operation_type || "click";
-
-    switch (operationType) {
-      case "navigate":
-        if (!params.url) return { ok: false, error: "URL required for navigate" };
-        await this.runOpenCLI(["browser", "open", params.url]);
-        return { ok: true, result: { action: "navigated", url: params.url } };
-
-      case "click":
-        if (!params.selector) return { ok: false, error: "Selector required for click" };
-        await this.runOpenCLI(["browser", "click", params.selector]);
-        return { ok: true, result: { action: "clicked", selector: params.selector } };
-
-      case "type":
-        if (!params.selector || !params.text) {
-          return { ok: false, error: "Selector and text required for type" };
-        }
-        await this.runOpenCLI(["browser", "type", params.selector, params.text]);
-        return { ok: true, result: { action: "typed", selector: params.selector } };
-
-      case "scroll":
-        const direction = params.direction || "down";
-        await this.runOpenCLI(["browser", "scroll", `--${direction}`]);
-        return { ok: true, result: { action: "scrolled", direction } };
-
-      case "wait":
-        if (!params.selector) return { ok: false, error: "Selector required for wait" };
-        const timeout = params.timeout ? `--timeout ${params.timeout}` : "";
-        await this.runOpenCLI(["browser", "wait", params.selector, timeout].filter(Boolean));
-        return { ok: true, result: { action: "waited", selector: params.selector } };
-
-      default:
-        return { ok: false, error: `Unknown operation type: ${operationType}` };
+    const target = params.target !== undefined ? String(params.target) : params.selector;
+    if (!target) {
+      return { ok: false, error: "target or selector is required" };
     }
-  }
 
-  private async observeChanges(params: DeepBrowserParams): Promise<AgentToolResult<unknown>> {
-    const content = await this.runOpenCLI(["browser", "content"]);
-    const screenshot = await this.runOpenCLI(["browser", "screenshot", "--output", "temp.png"]);
+    let result: string;
+
+    if (params.text !== undefined) {
+      result = await this.runOpenCLI(["browser", "type", target, params.text]);
+    } else if (params.option !== undefined) {
+      result = await this.runOpenCLI(["browser", "select", target, params.option]);
+    } else if (params.direction) {
+      const args = ["browser", "scroll", params.direction];
+      if (params.amount) args.push("--amount", String(params.amount));
+      result = await this.runOpenCLI(args);
+    } else if (params.key) {
+      result = await this.runOpenCLI(["browser", "keys", params.key]);
+    } else {
+      result = await this.runOpenCLI(["browser", "click", target]);
+    }
+
+    const parsed = this.parseActionResult(result);
 
     return {
       ok: true,
       result: {
-        content_length: content.length,
-        has_content: content.length > 0,
-        screenshot_taken: screenshot.includes("saved") || screenshot.includes("success"),
+        action_performed: true,
+        target,
+        result: parsed,
+        timestamp: new Date().toISOString(),
+      },
+    };
+  }
+
+  private async observeChanges(params: DeepBrowserParams): Promise<AgentToolResult<unknown>> {
+    const stateResult = await this.runOpenCLI(["browser", "state"]);
+    const state = this.parseStateOutput(stateResult);
+
+    const urlResult = await this.runOpenCLI(["browser", "get", "url"]);
+    const titleResult = await this.runOpenCLI(["browser", "get", "title"]);
+
+    let screenshot: string | null = null;
+    if (params.save_to) {
+      await this.runOpenCLI(["browser", "screenshot", params.save_to]);
+      screenshot = params.save_to;
+    }
+
+    return {
+      ok: true,
+      result: {
+        url: urlResult.trim(),
+        title: titleResult.trim(),
+        element_count: state.elements.length,
+        interactive_count: state.interactive_count,
+        scroll_position: state.scroll_position,
+        has_more_below: state.has_more_below,
+        screenshot,
         observed_at: new Date().toISOString(),
-        expected_change: params.expected_change || null,
       },
     };
   }
 
   private async saveMemory(params: DeepBrowserParams): Promise<AgentToolResult<unknown>> {
-    await fs.mkdir(MEMORY_BASE_DIR, { recursive: true });
-    await fs.mkdir(path.join(MEMORY_BASE_DIR, "patterns"), { recursive: true });
-    await fs.mkdir(path.join(MEMORY_BASE_DIR, "sessions"), { recursive: true });
-
-    if (params.site_pattern_id && params.selectors) {
-      const patternPath = path.join(MEMORY_BASE_DIR, "patterns", `${params.site_pattern_id}.json`);
-      const pattern: SitePattern = {
-        id: params.site_pattern_id,
-        domain: params.url ? new URL(params.url).hostname : "unknown",
-        page_type: "auto-detected",
-        layout_pattern: "custom",
-        selectors: params.selectors,
-        learned_at: new Date().toISOString(),
-        success_count: 1,
-      };
-
-      await fs.writeFile(patternPath, JSON.stringify(pattern, null, 2));
-      return { ok: true, result: { saved: true, pattern_id: params.site_pattern_id } };
+    const urlResult = await this.runOpenCLI(["browser", "get", "url"]);
+    const currentUrl = urlResult.trim();
+    
+    const domain = params.site_pattern_id || 
+                   (currentUrl ? new URL(currentUrl).hostname : null);
+    
+    if (!domain) {
+      return { ok: false, error: "无法确定域名，请提供 site_pattern_id" };
     }
 
-    return { ok: false, error: "site_pattern_id and selectors required for remember action" };
+    const stateResult = await this.runOpenCLI(["browser", "state"]);
+    const state = this.parseStateOutput(stateResult);
+
+    const pageType = this.detectPageType(state);
+    const pagination = this.detectPagination(state);
+    const dataRegions = this.detectDataRegions(state);
+
+    let pattern = await this.readSitePatternMD(domain);
+
+    if (!pattern) {
+      pattern = {
+        id: domain,
+        domain,
+        page_types: {},
+        navigation_flows: [],
+        data_endpoints: [],
+        selectors: {},
+        learned_at: new Date().toISOString(),
+        last_used: new Date().toISOString(),
+        success_count: 0,
+        failure_count: 0,
+      };
+    }
+
+    if (!pattern.page_types[pageType]) {
+      pattern.page_types[pageType] = {
+        type: pageType,
+        indicators: this.extractIndicators(state),
+        data_regions: dataRegions,
+        pagination: pagination || undefined,
+      };
+    }
+
+    if (params.selector) {
+      const [name, value] = params.selector.split("=");
+      if (name && value) {
+        pattern.selectors[name.trim()] = value.trim();
+      }
+    }
+
+    pattern.last_used = new Date().toISOString();
+    pattern.success_count++;
+
+    await this.writeSitePatternMD(pattern);
+
+    return {
+      ok: true,
+      result: {
+        saved: true,
+        domain,
+        page_type: pageType,
+        file_path: path.join(MEMORY_BASE_DIR, "patterns", `${domain}.md`),
+        pattern_summary: {
+          page_types: Object.keys(pattern.page_types),
+          selectors_count: Object.keys(pattern.selectors).length,
+          success_count: pattern.success_count,
+        },
+      },
+    };
   }
 
   private async collectContent(params: DeepBrowserParams): Promise<AgentToolResult<unknown>> {
-    if (!params.url) {
-      return { ok: false, error: "URL is required for collect action" };
+    if (params.url) {
+      await this.runOpenCLI(["browser", "open", params.url]);
     }
 
-    const html = await this.fetchPageContent(params.url);
-    const extracted = this.extractContent(html, params.selectors);
+    let content: string;
+    if (params.selector) {
+      const textResult = await this.runOpenCLI(["browser", "get", "text", params.selector]);
+      content = textResult;
+    } else {
+      const extractResult = await this.runOpenCLI(["browser", "extract"]);
+      const parsed = JSON.parse(extractResult);
+      content = parsed.content || "";
+    }
+
+    const urlResult = await this.runOpenCLI(["browser", "get", "url"]);
+    const titleResult = await this.runOpenCLI(["browser", "get", "title"]);
+
+    const extracted = {
+      content,
+      url: urlResult.trim(),
+      title: titleResult.trim(),
+      collected_at: new Date().toISOString(),
+    };
 
     if (params.save_to) {
       await fs.writeFile(params.save_to, JSON.stringify(extracted, null, 2));
@@ -254,25 +437,107 @@ export class DeepBrowserTool {
       result: {
         extracted,
         saved_to: params.save_to || null,
-        collected_at: new Date().toISOString(),
+        content_length: content.length,
       },
     };
   }
 
-  private async fetchPageContent(url: string): Promise<string> {
-    try {
-      const result = await this.runOpenCLI(["browser", "open", url, "--headless"]);
-      const content = await this.runOpenCLI(["browser", "content"]);
-      return content;
-    } catch {
-      const response = await fetch(url);
-      return await response.text();
+  private async planBrowsing(params: DeepBrowserParams): Promise<AgentToolResult<unknown>> {
+    if (!params.task_context) {
+      return { ok: false, error: "task_context is required for plan action" };
     }
+
+    const { task_id, sub_topic, depth, max_depth } = params.task_context;
+
+    let plan = await this.readPlanMD(task_id);
+
+    if (!plan) {
+      plan = {
+        id: task_id,
+        goal: sub_topic,
+        current_depth: depth,
+        max_depth,
+        steps: [],
+        completed_steps: [],
+        current_step: null,
+        collected_data: [],
+        created_at: new Date().toISOString(),
+        status: "pending",
+      };
+    }
+
+    const stateResult = await this.runOpenCLI(["browser", "state"]);
+    const state = this.parseStateOutput(stateResult);
+
+    const analysis = {
+      page_type: this.detectPageType(state),
+      interactive_elements: state.elements.filter((e) => e.visible && this.isInteractive(e)),
+      pagination: this.detectPagination(state),
+      data_regions: this.detectDataRegions(state),
+    };
+
+    const newSteps = this.generateBrowsingSteps(analysis, plan, depth, max_depth);
+
+    for (const step of newSteps) {
+      if (!plan.steps.find((s) => s.id === step.id)) {
+        plan.steps.push(step);
+      }
+    }
+
+    await this.writePlanMD(plan);
+
+    return {
+      ok: true,
+      result: {
+        plan,
+        current_analysis: analysis,
+        suggested_next_step: plan.steps.find((s) => s.status === "pending"),
+        progress: {
+          total_steps: plan.steps.length,
+          completed: plan.steps.filter((s) => s.status === "completed").length,
+          remaining: plan.steps.filter((s) => s.status === "pending").length,
+        },
+      },
+    };
   }
 
-  private async runOpenCLI(args: string[]): Promise<string> {
+  private async captureNetwork(params: DeepBrowserParams): Promise<AgentToolResult<unknown>> {
+    if (params.key) {
+      const detailResult = await this.runOpenCLI(["browser", "network", "--detail", params.key]);
+      const detail = JSON.parse(detailResult);
+      return {
+        ok: true,
+        result: {
+          entry: detail,
+          body: detail.body,
+        },
+      };
+    }
+
+    const args = ["browser", "network"];
+    if (params.filter) args.push("--filter", params.filter);
+
+    const result = await this.runOpenCLI(args);
+    const entries = this.parseNetworkOutput(result);
+
+    const apiEndpoints = entries.filter((e: Record<string, unknown>) =>
+      String(e.content_type || "").includes("json") ||
+      String(e.url || "").includes("/api/")
+    );
+
+    return {
+      ok: true,
+      result: {
+        total_entries: entries.length,
+        api_endpoints: apiEndpoints,
+        all_entries: entries.slice(0, params.limit || 20),
+      },
+    };
+  }
+
+  private runOpenCLI(args: string[]): Promise<string> {
     return new Promise((resolve, reject) => {
-      const proc = spawn("opencli", args, { timeout: 30000 });
+      const proc = spawn("opencli", args, { timeout: 60000 });
       let stdout = "";
       let stderr = "";
 
@@ -288,126 +553,594 @@ export class DeepBrowserTool {
     });
   }
 
-  private analyzePageStructure(html: string, url: string): PageAnalysis {
-    const domain = new URL(url).hostname;
-    const analysis: PageAnalysis = {
-      page_type: this.detectPageType(html),
-      layout_pattern: this.detectLayoutPattern(html),
-      content_structure: this.detectContentStructure(html),
-      interactive_elements: this.detectInteractiveElements(html),
-      data_regions: this.detectDataRegions(html),
-    };
+  private parseStateOutput(output: string): PageSnapshot {
+    const lines = output.split("\n");
+    const elements: ElementInfo[] = [];
+    const compounds: number[] = [];
+    let interactiveCount = 0;
 
-    const pagination = this.detectPagination(html);
-    if (pagination) {
-      analysis.pagination = pagination;
+    for (const line of lines) {
+      const match = line.match(/\[(\d+)\]\s*(\w+)(?:\[(.*?)\])?\s*(.*)?/);
+      if (match) {
+        const ref = parseInt(match[1], 10);
+        const tag = match[2];
+        const attrs = match[3] || "";
+        const text = match[4] || "";
+
+        const isInteractive = ["button", "a", "input", "select", "textarea"].includes(tag.toLowerCase()) ||
+          attrs.includes("onclick") ||
+          attrs.includes("role=");
+
+        if (isInteractive) interactiveCount++;
+
+        elements.push({
+          ref,
+          tag,
+          text: text.trim(),
+          visible: !line.includes("[hidden]"),
+        });
+
+        if (attrs.includes("select") || attrs.includes("date") || attrs.includes("file")) {
+          compounds.push(ref);
+        }
+      }
     }
 
-    return analysis;
+    return {
+      url: "",
+      title: "",
+      elements,
+      interactive_count: interactiveCount,
+      compounds,
+      scroll_position: { x: 0, y: 0 },
+      has_more_below: output.includes("scroll-down"),
+    };
   }
 
-  private detectPageType(html: string): string {
-    const lowerHtml = html.toLowerCase();
-    if (lowerHtml.includes("product") && lowerHtml.includes("price")) return "ecommerce-product";
-    if (lowerHtml.includes("search-result") || lowerHtml.includes("search result")) return "search-results";
-    if (lowerHtml.includes("article") || lowerHtml.includes("blog")) return "article";
-    if (lowerHtml.includes("documentation") || lowerHtml.includes("docs")) return "documentation";
-    if (lowerHtml.includes("listing") || lowerHtml.includes("list")) return "listing";
+  private parseNetworkOutput(output: string): unknown[] {
+    try {
+      const parsed = JSON.parse(output);
+      if (Array.isArray(parsed)) return parsed;
+      if (parsed.entries) return parsed.entries;
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  private parseActionResult(output: string): Record<string, unknown> {
+    try {
+      return JSON.parse(output);
+    } catch {
+      return { raw: output };
+    }
+  }
+
+  private detectPageType(state: PageSnapshot): string {
+    const tags = state.elements.map((e) => e.tag.toLowerCase());
+    const texts = state.elements.map((e) => e.text?.toLowerCase() || "").join(" ");
+
+    if (texts.includes("购物车") || texts.includes("cart") || texts.includes("checkout")) return "checkout";
+    if (texts.includes("登录") || texts.includes("login") || texts.includes("sign in")) return "login";
+    if (texts.includes("搜索") || texts.includes("search")) return "search";
+    if (state.compounds.length > 3) return "form";
+    if (tags.filter((t) => t === "article" || t === "section").length > 2) return "content";
+    if (tags.filter((t) => t === "li" || t === "tr").length > 10) return "listing";
+    if (texts.includes("价格") || texts.includes("price") || texts.includes("购买")) return "product";
+
     return "generic";
   }
 
-  private detectLayoutPattern(html: string): string {
-    if (html.includes("grid") || html.includes("flex")) return "grid";
-    if (html.includes("sidebar")) return "sidebar";
-    if (html.includes("hero")) return "hero";
-    return "standard";
+  private detectLayoutPattern(state: PageSnapshot): string {
+    const hasNav = state.elements.some((e) => e.tag === "nav");
+    const hasAside = state.elements.some((e) => e.tag === "aside");
+    const hasMain = state.elements.some((e) => e.tag === "main");
+
+    if (hasNav && hasAside) return "three-column";
+    if (hasNav || hasAside) return "two-column";
+    if (hasMain) return "single-column";
+    return "fluid";
   }
 
-  private detectContentStructure(html: string): string {
-    if (html.includes("<table")) return "table";
-    if (html.includes("<ul") || html.includes("<ol")) return "list";
-    if (html.includes("<article")) return "article";
-    return "mixed";
+  private detectDataRegions(state: PageSnapshot): Array<{ selector: string; type: string }> {
+    const regions: Array<{ selector: string; type: string }> = [];
+
+    for (const el of state.elements) {
+      if (el.tag === "main") regions.push({ selector: "main", type: "primary-content" });
+      if (el.tag === "article") regions.push({ selector: "article", type: "article" });
+      if (el.tag === "aside") regions.push({ selector: "aside", type: "sidebar" });
+      if (el.tag === "table") regions.push({ selector: "table", type: "data-table" });
+      if (el.tag === "ul" || el.tag === "ol") regions.push({ selector: el.tag, type: "list" });
+    }
+
+    return [...new Map(regions.map(r => [r.selector, r])).values()].slice(0, 5);
   }
 
-  private detectInteractiveElements(html: string): Array<{ selector: string; type: string; label: string }> {
-    const elements: Array<{ selector: string; type: string; label: string }> = [];
-    const buttonMatches = html.matchAll(/<button[^>]*>([^<]*)<\/button>/gi);
-    for (const match of buttonMatches) {
-      elements.push({ selector: "button", type: "button", label: match[1].trim() });
-    }
-    const inputMatches = html.matchAll(/<input[^>]*type="([^"]*)"[^>]*placeholder="([^"]*)"/gi);
-    for (const match of inputMatches) {
-      elements.push({ selector: `input[type="${match[1]}"]`, type: match[1], label: match[2] });
-    }
-    return elements.slice(0, 10);
-  }
+  private detectPagination(state: PageSnapshot): { type: string; selector: string } | null {
+    const paginationElements = state.elements.filter((e) =>
+      e.text?.toLowerCase().includes("下一页") ||
+      e.text?.toLowerCase().includes("next") ||
+      e.text?.toLowerCase().includes("more")
+    );
 
-  private detectDataRegions(html: string): Array<{ selector: string; type: string; description: string }> {
-    const regions: Array<{ selector: string; type: string; description: string }> = [];
-    if (html.includes("main")) regions.push({ selector: "main", type: "main-content", description: "Main content area" });
-    if (html.includes("article")) regions.push({ selector: "article", type: "article", description: "Article content" });
-    if (html.includes("aside")) regions.push({ selector: "aside", type: "sidebar", description: "Sidebar content" });
-    return regions;
-  }
+    if (paginationElements.length > 0) {
+      const el = paginationElements[0];
+      if (el.text?.includes("加载更多") || el.text?.includes("load more")) {
+        return { type: "load-more", selector: `[${el.ref}]` };
+      }
+      return { type: "click", selector: `[${el.ref}]` };
+    }
 
-  private detectPagination(html: string): { type: string; selector: string } | null {
-    if (html.includes("pagination") || html.includes("page-next")) {
-      return { type: "click", selector: ".pagination-next, .page-next, [rel='next']" };
-    }
-    if (html.includes("load-more") || html.includes("load more")) {
-      return { type: "load-more", selector: ".load-more, [data-load-more]" };
-    }
-    if (html.includes("infinite-scroll") || html.includes("infinite scroll")) {
+    if (state.has_more_below) {
       return { type: "scroll", selector: "window" };
     }
+
     return null;
   }
 
-  private extractContent(
-    html: string,
-    selectors?: { title?: string; content?: string; metadata?: string; list_items?: string },
-  ): Record<string, unknown> {
-    const result: Record<string, unknown> = {};
+  private detectFormPurposes(state: PageSnapshot): Array<{ purpose: string; selectors: Record<string, string> }> {
+    const forms: Array<{ purpose: string; selectors: Record<string, string> }> = [];
+    const inputs = state.elements.filter((e) => e.tag === "input");
 
-    if (selectors?.title) {
-      const match = html.match(new RegExp(`<[^>]*${selectors.title}[^>]*>([^<]*)<`, "i"));
-      result.title = match ? match[1].trim() : "";
+    if (inputs.length > 0) {
+      forms.push({
+        purpose: "input",
+        selectors: {
+          input: `[${inputs[0].ref}]`,
+        },
+      });
     }
 
-    if (selectors?.content) {
-      const match = html.match(new RegExp(`<[^>]*${selectors.content}[^>]*>([\\s\\S]*?)<\\/`, "i"));
-      result.content = match ? match[1].replace(/<[^>]*>/g, "").trim() : "";
-    }
-
-    if (selectors?.list_items) {
-      const items = html.match(new RegExp(`<[^>]*${selectors.list_items}[^>]*>([\\s\\S]*?)<\\/`, "gi")) || [];
-      result.list_items = items.map((item) => item.replace(/<[^>]*>/g, "").trim()).filter(Boolean);
-    }
-
-    result.raw_length = html.length;
-    result.extracted_at = new Date().toISOString();
-
-    return result;
+    return forms;
   }
 
-  private async findSitePattern(url: string): Promise<SitePattern | null> {
-    try {
-      const domain = new URL(url).hostname;
-      const patternsDir = path.join(MEMORY_BASE_DIR, "patterns");
-      const files = await fs.readdir(patternsDir).catch(() => []);
+  private isInteractive(el: ElementInfo): boolean {
+    return ["button", "a", "input", "select", "textarea"].includes(el.tag.toLowerCase());
+  }
 
-      for (const file of files) {
-        if (file.endsWith(".json")) {
-          const content = await fs.readFile(path.join(patternsDir, file), "utf-8");
-          const pattern: SitePattern = JSON.parse(content);
-          if (pattern.domain === domain) {
-            return pattern;
+  private extractIndicators(state: PageSnapshot): string[] {
+    const indicators: string[] = [];
+    for (const el of state.elements.slice(0, 20)) {
+      if (el.text && el.text.length < 50) {
+        indicators.push(el.text.toLowerCase());
+      }
+    }
+    return [...new Set(indicators)].slice(0, 10);
+  }
+
+  private suggestNextSteps(analysis: {
+    page_type: string;
+    pagination?: { type: string; selector: string } | null;
+  }): string[] {
+    const steps: string[] = [];
+
+    if (analysis.page_type === "listing" && analysis.pagination) {
+      steps.push(`处理分页: ${analysis.pagination.type} via ${analysis.pagination.selector}`);
+    }
+    if (analysis.page_type === "login") {
+      steps.push("处理登录流程");
+    }
+    steps.push("捕获网络请求获取 API 端点");
+    steps.push("保存网站模式供后续使用");
+
+    return steps;
+  }
+
+  private generateBrowsingSteps(
+    analysis: {
+      page_type: string;
+      pagination?: { type: string; selector: string } | null;
+      data_regions: Array<{ selector: string; type: string }>;
+    },
+    plan: BrowsingPlan,
+    depth: number,
+    maxDepth: number,
+  ): PlanStep[] {
+    const steps: PlanStep[] = [];
+    let stepId = plan.steps.length;
+
+    if (analysis.page_type === "listing" && analysis.pagination && depth < maxDepth) {
+      steps.push({
+        id: `step-${++stepId}`,
+        description: "采集当前页数据",
+        action: "collect",
+        params: { selector: analysis.data_regions[0]?.selector || "main" },
+        dependencies: [],
+        status: "pending",
+        retry_count: 0,
+        max_retries: 3,
+        expected_outcome: "当前页数据已采集",
+      });
+
+      steps.push({
+        id: `step-${++stepId}`,
+        description: `翻页: ${analysis.pagination.type}`,
+        action: "operate",
+        params: { target: analysis.pagination.selector },
+        dependencies: [`step-${stepId - 1}`],
+        status: "pending",
+        retry_count: 0,
+        max_retries: 3,
+        expected_outcome: "下一页已加载",
+      });
+    }
+
+    for (const region of analysis.data_regions) {
+      steps.push({
+        id: `step-${++stepId}`,
+        description: `提取 ${region.type} 数据`,
+        action: "collect",
+        params: { selector: region.selector },
+        dependencies: [],
+        status: "pending",
+        retry_count: 0,
+        max_retries: 2,
+        expected_outcome: `${region.type} 数据已提取`,
+      });
+    }
+
+    return steps;
+  }
+
+  private async readSitePatternMD(domain: string): Promise<SitePattern | null> {
+    try {
+      const filePath = path.join(MEMORY_BASE_DIR, "patterns", `${domain}.md`);
+      const content = await fs.readFile(filePath, "utf-8");
+      return this.parsePatternMD(content);
+    } catch {
+      return null;
+    }
+  }
+
+  private parsePatternMD(content: string): SitePattern {
+    const lines = content.split("\n");
+    const pattern: SitePattern = {
+      id: "",
+      domain: "",
+      page_types: {},
+      navigation_flows: [],
+      data_endpoints: [],
+      selectors: {},
+      learned_at: "",
+      last_used: "",
+      success_count: 0,
+      failure_count: 0,
+    };
+
+    let currentSection = "";
+    let currentPageType = "";
+
+    for (const line of lines) {
+      if (line.startsWith("# ")) {
+        pattern.domain = line.slice(2).trim();
+        pattern.id = pattern.domain;
+      } else if (line.startsWith("> 域名:")) {
+        pattern.domain = line.split(":")[1].trim();
+      } else if (line.startsWith("> 学习时间:")) {
+        pattern.learned_at = line.split(":")[1].trim();
+      } else if (line.startsWith("> 最后使用:")) {
+        pattern.last_used = line.split(":")[1].trim();
+      } else if (line.startsWith("> 成功次数:")) {
+        pattern.success_count = parseInt(line.split(":")[1].trim()) || 0;
+      } else if (line.startsWith("> 失败次数:")) {
+        pattern.failure_count = parseInt(line.split(":")[1].trim()) || 0;
+      } else if (line.startsWith("### ")) {
+        currentPageType = line.slice(4).split("（")[0].trim();
+        currentSection = "page_type";
+        pattern.page_types[currentPageType] = {
+          type: currentPageType,
+          indicators: [],
+          data_regions: [],
+        };
+      } else if (line.startsWith("## ")) {
+        currentSection = line.slice(3).toLowerCase().replace(/ /g, "_");
+      } else if (line.startsWith("| ") && !line.includes("---")) {
+        const cells = line.split("|").map(s => s.trim()).filter(Boolean);
+        if (currentSection === "page_type" && currentPageType && cells.length >= 2) {
+          if (cells[0] && cells[0] !== "选择器" && cells[0] !== "类型") {
+            pattern.page_types[currentPageType].data_regions.push({
+              selector: cells[0],
+              type: cells[1] || "unknown",
+            });
           }
+        }
+      }
+    }
+
+    return pattern;
+  }
+
+  private async writeSitePatternMD(pattern: SitePattern): Promise<void> {
+    const filePath = path.join(MEMORY_BASE_DIR, "patterns", `${pattern.domain}.md`);
+    
+    let content = `# ${pattern.domain}
+
+> 域名: ${pattern.domain}
+> 学习时间: ${pattern.learned_at || new Date().toISOString()}
+> 最后使用: ${pattern.last_used || new Date().toISOString()}
+> 成功次数: ${pattern.success_count}
+> 失败次数: ${pattern.failure_count}
+
+`;
+
+    content += `## 页面类型\n\n`;
+
+    for (const [typeName, typeData] of Object.entries(pattern.page_types)) {
+      content += `### ${typeName}\n\n`;
+      
+      if (typeData.indicators && typeData.indicators.length > 0) {
+        content += `**识别特征**：\n`;
+        typeData.indicators.forEach(i => {
+          content += `- ${i}\n`;
+        });
+        content += "\n";
+      }
+
+      if (typeData.data_regions && typeData.data_regions.length > 0) {
+        content += `**数据区域**：\n\n`;
+        content += `| 选择器 | 类型 | 说明 |\n`;
+        content += `|--------|------|------|\n`;
+        typeData.data_regions.forEach(r => {
+          content += `| ${r.selector} | ${r.type} | |\n`;
+        });
+        content += "\n";
+      }
+
+      if (typeData.pagination) {
+        content += `**分页机制**：\n`;
+        content += `- 类型: ${typeData.pagination.type}\n`;
+        content += `- 选择器: ${typeData.pagination.selector}\n\n`;
+      }
+    }
+
+    if (Object.keys(pattern.selectors).length > 0) {
+      content += `## 选择器\n\n`;
+      content += `| 名称 | 选择器 |\n`;
+      content += `|------|--------|\n`;
+      for (const [name, selector] of Object.entries(pattern.selectors)) {
+        content += `| ${name} | ${selector} |\n`;
+      }
+      content += "\n";
+    }
+
+    await fs.writeFile(filePath, content);
+    await this.updatePatternsIndex(pattern);
+  }
+
+  private async updatePatternsIndex(pattern: SitePattern): Promise<void> {
+    const indexPath = path.join(MEMORY_BASE_DIR, "patterns", "INDEX.md");
+    
+    let indexContent = `# 网站模式索引
+
+| 域名 | 文件 | 页面类型 | 最后使用 | 成功率 |
+|------|------|---------|---------|--------|
+`;
+
+    const entries: Array<{ domain: string; file: string; pageTypes: string[]; lastUsed: string; successRate: string }> = [];
+    
+    try {
+      const existing = await fs.readFile(indexPath, "utf-8");
+      const lines = existing.split("\n").filter(l => l.startsWith("|") && !l.includes("---") && !l.includes("域名"));
+      
+      for (const line of lines) {
+        const cells = line.split("|").map(s => s.trim()).filter(Boolean);
+        if (cells.length >= 5) {
+          entries.push({
+            domain: cells[0],
+            file: cells[1].replace(/\[([^\]]+)\].*/, "$1"),
+            pageTypes: cells[2].split(", "),
+            lastUsed: cells[3],
+            successRate: cells[4],
+          });
         }
       }
     } catch {}
 
-    return null;
+    const existingIdx = entries.findIndex(e => e.domain === pattern.domain);
+    const successRate = pattern.success_count + pattern.failure_count > 0
+      ? Math.round(pattern.success_count / (pattern.success_count + pattern.failure_count) * 100) + "%"
+      : "N/A";
+
+    const newEntry = {
+      domain: pattern.domain,
+      file: `${pattern.domain}.md`,
+      pageTypes: Object.keys(pattern.page_types),
+      lastUsed: pattern.last_used.split("T")[0],
+      successRate,
+    };
+
+    if (existingIdx >= 0) {
+      entries[existingIdx] = newEntry;
+    } else {
+      entries.push(newEntry);
+    }
+
+    for (const e of entries) {
+      indexContent += `| ${e.domain} | [${e.file}](./${e.file}) | ${e.pageTypes.join(", ")} | ${e.lastUsed} | ${e.successRate} |\n`;
+    }
+
+    await fs.writeFile(indexPath, indexContent);
+  }
+
+  private async readPlanMD(taskId: string): Promise<BrowsingPlan | null> {
+    try {
+      const filePath = path.join(MEMORY_BASE_DIR, "plans", `${taskId}.md`);
+      const content = await fs.readFile(filePath, "utf-8");
+      return this.parsePlanMD(content);
+    } catch {
+      return null;
+    }
+  }
+
+  private parsePlanMD(content: string): BrowsingPlan {
+    const lines = content.split("\n");
+    const plan: BrowsingPlan = {
+      id: "",
+      goal: "",
+      current_depth: 0,
+      max_depth: 3,
+      steps: [],
+      completed_steps: [],
+      current_step: null,
+      collected_data: [],
+      created_at: "",
+      status: "pending",
+    };
+
+    let currentStep: PlanStep | null = null;
+
+    for (const line of lines) {
+      if (line.startsWith("> 任务ID:")) {
+        plan.id = line.split(":")[1].trim();
+      } else if (line.startsWith("> 目标:")) {
+        plan.goal = line.split(":").slice(1).join(":").trim();
+      } else if (line.startsWith("> 当前深度:")) {
+        plan.current_depth = parseInt(line.split(":")[1].trim()) || 0;
+      } else if (line.startsWith("> 最大深度:")) {
+        plan.max_depth = parseInt(line.split(":")[1].trim()) || 3;
+      } else if (line.startsWith("> 状态:")) {
+        plan.status = line.split(":")[1].trim();
+      } else if (line.startsWith("> 创建时间:")) {
+        plan.created_at = line.split(":").slice(1).join(":").trim();
+      } else if (line.startsWith("### Step ")) {
+        if (currentStep) {
+          plan.steps.push(currentStep);
+        }
+        const match = line.match(/Step (\d+): (.+?)(?:\s*(✅|🔄|⏳|❌))?$/);
+        if (match) {
+          currentStep = {
+            id: `step-${match[1]}`,
+            description: match[2].trim(),
+            action: "",
+            params: {},
+            dependencies: [],
+            status: match[3] === "✅" ? "completed" : match[3] === "🔄" ? "in_progress" : match[3] === "❌" ? "failed" : "pending",
+            retry_count: 0,
+            max_retries: 3,
+            expected_outcome: "",
+          };
+        }
+      } else if (currentStep) {
+        if (line.startsWith("- 操作:")) {
+          currentStep.action = line.split(":")[1].trim();
+        } else if (line.startsWith("- 参数:")) {
+          try {
+            currentStep.params = JSON.parse(line.split(":").slice(1).join(":").trim());
+          } catch {}
+        } else if (line.startsWith("- 依赖:")) {
+          currentStep.dependencies = line.split(":")[1].trim().split(", ").filter(Boolean);
+        } else if (line.startsWith("- 状态:")) {
+          const status = line.split(":")[1].trim();
+          currentStep.status = status === "已完成" ? "completed" : status === "进行中" ? "in_progress" : status === "失败" ? "failed" : "pending";
+        }
+      }
+    }
+
+    if (currentStep) {
+      plan.steps.push(currentStep);
+    }
+
+    plan.completed_steps = plan.steps.filter(s => s.status === "completed").map(s => s.id);
+    plan.current_step = plan.steps.find(s => s.status === "in_progress")?.id || null;
+
+    return plan;
+  }
+
+  private async writePlanMD(plan: BrowsingPlan): Promise<void> {
+    const filePath = path.join(MEMORY_BASE_DIR, "plans", `${plan.id}.md`);
+    
+    let content = `# 浏览计划: ${plan.goal}
+
+> 任务ID: ${plan.id}
+> 目标: ${plan.goal}
+> 当前深度: ${plan.current_depth}
+> 最大深度: ${plan.max_depth}
+> 状态: ${plan.status}
+> 创建时间: ${plan.created_at}
+
+## 进度概览
+
+- 总步骤: ${plan.steps.length}
+- 已完成: ${plan.steps.filter(s => s.status === "completed").length}
+- 进行中: ${plan.steps.filter(s => s.status === "in_progress").length}
+- 待执行: ${plan.steps.filter(s => s.status === "pending").length}
+
+## 执行步骤
+
+`;
+
+    for (const step of plan.steps) {
+      const statusIcon = step.status === "completed" ? "✅" : 
+                         step.status === "in_progress" ? "🔄" : 
+                         step.status === "failed" ? "❌" : "⏳";
+      const statusText = step.status === "completed" ? "已完成" :
+                         step.status === "in_progress" ? "进行中" :
+                         step.status === "failed" ? "失败" : "待执行";
+
+      content += `### ${step.id.replace("step-", "Step ")}: ${step.description} ${statusIcon}\n\n`;
+      content += `- 状态: ${statusText}\n`;
+      content += `- 操作: ${step.action}\n`;
+      content += `- 参数: ${JSON.stringify(step.params)}\n`;
+      if (step.dependencies.length > 0) {
+        content += `- 依赖: ${step.dependencies.join(", ")}\n`;
+      }
+      content += `- 预期: ${step.expected_outcome}\n`;
+      if (step.executed_at) {
+        content += `- 执行时间: ${step.executed_at}\n`;
+      }
+      content += "\n";
+    }
+
+    await fs.writeFile(filePath, content);
+    await this.updatePlansIndex(plan);
+  }
+
+  private async updatePlansIndex(plan: BrowsingPlan): Promise<void> {
+    const indexPath = path.join(MEMORY_BASE_DIR, "plans", "INDEX.md");
+    
+    let indexContent = `# 浏览计划索引
+
+| 任务ID | 目标 | 状态 | 文件 | 创建时间 |
+|--------|------|------|------|---------|
+`;
+
+    const entries: Array<{ id: string; goal: string; status: string; created: string }> = [];
+    
+    try {
+      const existing = await fs.readFile(indexPath, "utf-8");
+      const lines = existing.split("\n").filter(l => l.startsWith("|") && !l.includes("---") && !l.includes("任务ID"));
+      
+      for (const line of lines) {
+        const cells = line.split("|").map(s => s.trim()).filter(Boolean);
+        if (cells.length >= 5) {
+          entries.push({
+            id: cells[0],
+            goal: cells[1],
+            status: cells[2],
+            created: cells[4].replace(/\[([^\]]+)\].*/, "$1"),
+          });
+        }
+      }
+    } catch {}
+
+    const existingIdx = entries.findIndex(e => e.id === plan.id);
+    const newEntry = {
+      id: plan.id,
+      goal: plan.goal.slice(0, 30) + (plan.goal.length > 30 ? "..." : ""),
+      status: plan.status,
+      created: plan.created_at.split("T")[0],
+    };
+
+    if (existingIdx >= 0) {
+      entries[existingIdx] = newEntry;
+    } else {
+      entries.push(newEntry);
+    }
+
+    for (const e of entries) {
+      indexContent += `| ${e.id} | ${e.goal} | ${e.status} | [${e.id}.md](./${e.id}.md) | ${e.created} |\n`;
+    }
+
+    await fs.writeFile(indexPath, indexContent);
   }
 }

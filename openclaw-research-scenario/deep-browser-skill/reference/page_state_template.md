@@ -1,132 +1,132 @@
-# Page State Template
+# 页面状态模板
 
-Use this template to create page state files in `states/` directory.
+使用此模板在 `states/` 目录中创建页面状态文件。
 
-## Template
+## 模板
 
 ```markdown
-# Page State: {state-id}
+# 页面状态: {state-id}
 
-> State ID: {state-id}
-> Created: {timestamp}
-> Updated: {timestamp}
+> 状态ID: {state-id}
+> 创建时间: {timestamp}
+> 更新时间: {timestamp}
 
-## Basic Info
+## 基本信息
 
 - **URL**: {page-url}
-- **Title**: {page-title}
-- **Status**: {pending|analyzing|analyzed|failed}
+- **标题**: {page-title}
+- **状态**: {pending|analyzing|analyzed|failed}
 
-## Page Elements
+## 页面元素
 
-| Ref | Tag | Text | Visible | Role |
-|-----|-----|------|---------|------|
+| 引用 | 标签 | 文本 | 可见 | 角色 |
+|------|------|------|------|------|
 | 1 | {tag} | {text} | {✓|✗} | {role} |
 | 2 | ... | ... | ... | ... |
 
-## Analysis
+## 分析结果
 
-**Page Type**: {page-type} (confidence: {confidence})
+**页面类型**: {page-type} (置信度: {confidence})
 
-**Layout**: {layout-pattern}
+**布局模式**: {layout-pattern}
 
-### Data Regions
+### 数据区域
 
 - `{selector}`: {description}
 
-### Pagination
+### 分页机制
 
-- Type: {pagination-type}
-- Selector: `{selector}`
-- Description: {description}
+- 类型: {pagination-type}
+- 选择器: `{selector}`
+- 描述: {description}
 
-### Content Summary
+### 内容摘要
 
-- Topic: {main-topic}
-- Language: {language}
-- Entities: {entity-list}
+- 主题: {main-topic}
+- 语言: {language}
+- 实体: {entity-list}
 
-## Suggested Actions
+## 建议操作
 
-1. {priority-icon} **{action-type}**
-   - Target: `{selector}`
-   - Purpose: {purpose}
-   - Priority: {high|medium|low}
+1. {优先级图标} **{操作类型}**
+   - 目标: `{selector}`
+   - 目的: {purpose}
+   - 优先级: {high|medium|low}
 
-## Network Requests
+## 网络请求
 
-Total: {count} requests
+总计: {count} 个请求
 
-| Method | URL | Type |
-|--------|-----|------|
+| 方法 | URL | 类型 |
+|------|-----|------|
 | {method} | {url} | {content-type} |
 
-## Notes
+## 备注
 
 - {timestamp}: {note-content}
 ```
 
-## Usage
+## 使用方法
 
-1. Copy template to `states/state-{id}.md`
-2. Replace placeholders with actual values
-3. Use FileOps to update sections as needed
+1. 复制模板到 `states/state-{id}.md`
+2. 用实际值替换占位符
+3. 使用FileOps按需更新各部分
 
-## Example
+## 示例
 
 ```markdown
-# Page State: state-001
+# 页面状态: state-001
 
-> State ID: state-001
-> Created: 2026-04-28T10:00:00Z
-> Updated: 2026-04-28T10:30:00Z
+> 状态ID: state-001
+> 创建时间: 2026-04-28T10:00:00Z
+> 更新时间: 2026-04-28T10:30:00Z
 
-## Basic Info
+## 基本信息
 
 - **URL**: https://example.com/products
-- **Title**: Product Listing
-- **Status**: analyzed
+- **标题**: 商品列表
+- **状态**: analyzed
 
-## Page Elements
+## 页面元素
 
-| Ref | Tag | Text | Visible | Role |
-|-----|-----|------|---------|------|
-| 1 | button | Search | ✓ | button |
+| 引用 | 标签 | 文本 | 可见 | 角色 |
+|------|------|------|------|------|
+| 1 | button | 搜索 | ✓ | button |
 | 2 | input | | ✓ | textbox |
 
-## Analysis
+## 分析结果
 
-**Page Type**: listing (confidence: 0.95)
+**页面类型**: listing (置信度: 0.95)
 
-**Layout**: two-column
+**布局模式**: two-column
 
-### Data Regions
+### 数据区域
 
-- `.product-grid`: Main product listing
+- `.product-grid`: 主商品列表
 
-### Pagination
+### 分页机制
 
-- Type: click
-- Selector: `.next-page`
-- Description: Click to load next page
+- 类型: click
+- 选择器: `.next-page`
+- 描述: 点击加载下一页
 
-## Suggested Actions
+## 建议操作
 
 1. 🔴 **click**
-   - Target: `.search-button`
-   - Purpose: Submit search query
-   - Priority: high
+   - 目标: `.search-button`
+   - 目的: 提交搜索查询
+   - 优先级: high
 
-## Network Requests
+## 网络请求
 
-Total: 15 requests
+总计: 15 个请求
 
-| Method | URL | Type |
-|--------|-----|------|
+| 方法 | URL | 类型 |
+|------|-----|------|
 | GET | /api/products | application/json |
 
-## Notes
+## 备注
 
-- 10:00:05: Initial page load successful
-- 10:00:10: Found 50 products on first page
+- 10:00:05: 初始页面加载成功
+- 10:00:10: 第一页发现50个商品
 ```

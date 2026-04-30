@@ -1,161 +1,167 @@
-# Browser Operations Reference
+# 浏览器操作参考文档
 
-This document describes available browser operations and their usage patterns.
+本文档提供浏览器操作的详细说明和使用模式，帮助智能体正确操作浏览器。
 
-## Core Operations
+## 核心操作
 
-### Navigation
+### 导航操作
 
 **open(url)**
-- Opens a URL in the browser
-- Waits for page load to complete
-- Returns: `{"status": "opened", "url": url}`
+- 在浏览器中打开URL
+- 等待页面加载完成
+- 返回：`{"status": "opened", "url": url}`
 
 **get_url()**
-- Gets current page URL
-- Returns: URL string
+- 获取当前页面URL
+- 返回：URL字符串
 
 **get_title()**
-- Gets current page title
-- Returns: Title string
+- 获取当前页面标题
+- 返回：标题字符串
 
-### Page State
+### 页面状态
 
 **get_state()**
-- Captures current page state
-- Returns: `{"elements": [...], "element_count": n, "has_more_below": bool}`
-- Elements include: ref, tag, text, visible, role
+- 捕获当前页面状态
+- 返回：`{"elements": [...], "element_count": n, "has_more_below": bool}`
+- 元素包括：ref, tag, text, visible, role
 
 **extract()**
-- Extracts page content
-- Returns: Structured content object
+- 提取页面内容
+- 返回：结构化内容对象
 
-### Interaction
+### 交互操作
 
 **click(target)**
-- Clicks element by reference number
-- Waits for resulting changes
-- Returns: `{"status": "clicked", "target": ref}`
+- 通过引用编号点击元素
+- 等待结果变化
+- 返回：`{"status": "clicked", "target": ref}`
 
 **type_text(target, text)**
-- Types text into input element
-- Target: element reference number
-- Returns: `{"status": "typed", "target": ref, "text": text}`
+- 在输入元素中输入文本
+- Target: 元素引用编号
+- 返回：`{"status": "typed", "target": ref, "text": text}`
 
 **scroll(direction, amount)**
-- Scrolls page in specified direction
-- Direction: "up" or "down"
-- Amount: pixels to scroll
-- Returns: `{"status": "scrolled", ...}`
+- 在指定方向滚动页面
+- Direction: "up" 或 "down"
+- Amount: 滚动像素数
+- 返回：`{"status": "scrolled", ...}`
 
-### Data Extraction
+### 数据提取
 
 **get_text(selector)**
-- Gets text content of element
-- Selector: CSS selector string
-- Returns: Text content string
+- 获取元素的文本内容
+- Selector: CSS选择器字符串
+- 返回：文本内容字符串
 
 **screenshot(save_path)**
-- Takes screenshot of current page
-- Save path: file path to save image
-- Returns: `{"status": "captured", "path": path}`
+- 截取当前页面截图
+- Save path: 保存图片的文件路径
+- 返回：`{"status": "captured", "path": path}`
 
-### Network
+### 网络监控
 
 **network(filter_type)**
-- Captures network requests
-- Filter type: optional filter string
-- Returns: List of network entries
+- 捕获网络请求
+- Filter type: 可选的过滤字符串
+- 返回：网络请求列表
 
-## Usage Patterns
+## 使用模式
 
-### Pattern 1: Basic Navigation
+### 模式1：基本导航
 
 ```
 1. open(url)
 2. get_state()
-3. Analyze state
-4. Decide next action
+3. 分析状态
+4. 决定下一步操作
 ```
 
-### Pattern 2: Form Interaction
+### 模式2：表单交互
 
 ```
 1. get_state()
-2. Identify form elements
+2. 识别表单元素
 3. type_text(input_ref, value)
 4. click(submit_ref)
-5. get_state() to verify result
+5. get_state() 验证结果
 ```
 
-### Pattern 3: Pagination
+### 模式3：分页处理
 
 ```
 1. get_state()
-2. Extract current page data
-3. Identify next page element
+2. 提取当前页数据
+3. 识别下一页元素
 4. click(next_page_ref)
-5. Wait for load
-6. Repeat until done
+5. 等待加载
+6. 重复直到完成
 ```
 
-### Pattern 4: Search
+### 模式4：搜索操作
 
 ```
 1. get_state()
-2. Find search input
+2. 查找搜索输入框
 3. type_text(search_input, query)
 4. click(search_button)
-5. get_state() to analyze results
+5. get_state() 分析结果
 ```
 
-## Error Handling
+## 错误处理
 
-### Common Errors
+### 常见错误
 
-**Element not found**
-- Cause: Element reference doesn't exist
-- Solution: Refresh state with get_state()
+**元素未找到**
+- 原因：元素引用不存在
+- 解决：使用get_state()刷新状态
 
-**Timeout**
-- Cause: Page load or operation took too long
-- Solution: Increase timeout or check network
+**超时**
+- 原因：页面加载或操作耗时过长
+- 解决：增加超时时间或检查网络
 
-**Browser not responding**
-- Cause: Browser crashed or froze
-- Solution: Restart browser session
+**浏览器无响应**
+- 原因：浏览器崩溃或冻结
+- 解决：重启浏览器会话
 
-### Recovery Strategies
+### 恢复策略
 
-1. **State Refresh**: Call get_state() to get current element references
-2. **Retry**: Retry failed operation with fresh state
-3. **Fallback**: Use web-fetch if browser unavailable
+1. **状态刷新**：调用get_state()获取当前元素引用
+2. **重试**：使用新状态重试失败的操作
+3. **降级**：如果浏览器不可用，使用web-fetch
 
-## Best Practices
+## 最佳实践
 
-1. **Always check state before interaction**
-   - Elements may change after page updates
-   - Use get_state() to refresh references
+1. **交互前始终检查状态**
+   - 页面更新后元素可能改变
+   - 使用get_state()刷新引用
 
-2. **Wait for page stability**
-   - After clicks, wait for page to settle
-   - Check for loading indicators
+2. **等待页面稳定**
+   - 点击后等待页面稳定
+   - 检查加载指示器
 
-3. **Use specific selectors**
-   - Prefer IDs and unique classes
-   - Avoid generic selectors that may match multiple elements
+3. **使用特定选择器**
+   - 优先使用ID和唯一类名
+   - 避免可能匹配多个元素的通用选择器
 
-4. **Handle dynamic content**
-   - Scroll to load more content
-   - Wait for AJAX requests to complete
+4. **处理动态内容**
+   - 滚动以加载更多内容
+   - 等待AJAX请求完成
 
-5. **Verify actions**
-   - After interaction, verify expected result
-   - Use get_state() or get_url() to confirm
+5. **验证操作**
+   - 交互后验证预期结果
+   - 使用get_state()或get_url()确认
 
-## Limitations
+## 限制
 
-- Cannot interact with OS-level dialogs
-- Limited control over browser settings
-- May not work with all anti-bot measures
-- Requires JavaScript-enabled browser
+- 无法与系统级对话框交互
+- 对浏览器设置的控制有限
+- 可能无法处理所有反爬措施
+- 需要启用JavaScript的浏览器
+
+## 相关参考
+
+- [页面分析参考](page_analysis.md)
+- [元素分析参考](element_analysis.md)
+- [网络分析参考](network_analysis.md)

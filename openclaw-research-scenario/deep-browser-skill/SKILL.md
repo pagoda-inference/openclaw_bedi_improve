@@ -1,565 +1,565 @@
 ---
 name: deep-browser
-description: "Deep web browsing capability with intelligent page understanding and systematic navigation. Invoke when needing to deeply explore websites, understand page structures, navigate complex flows, or accumulate browsing knowledge for reuse."
+description: "深度网页浏览能力，具备智能页面理解和系统化导航功能。当需要深度探索网站、理解页面结构、导航复杂流程或积累浏览知识以供复用时调用。"
 user-invocable: false
 ---
 
 # Deep Browser Skill
 
-Advanced browser automation with LLM intelligence for complex web interactions.
+高级浏览器自动化，结合LLM智能实现复杂网页交互。
 
-## When to Use
+## 何时使用
 
-✅ **USE this skill when:**
+✅ **使用此技能当：**
 
-- **Data requires page interaction**
-  - Information behind login forms
-  - Data loaded via user actions (click, scroll, input)
-  - Content requiring multi-step workflows
-  - Dynamic content triggered by interactions
+- **数据需要页面交互**
+  - 登录表单后的信息
+  - 通过用户操作加载的数据（点击、滚动、输入）
+  - 需要多步工作流的内容
+  - 由交互触发的动态内容
 
-- **In-depth page interaction needed**
-  - Multi-step form submissions
-  - Complex navigation flows
-  - Dynamic content loading (infinite scroll, load more)
-  - Authentication-required pages
+- **需要深度页面交互**
+  - 多步表单提交
+  - 复杂导航流程
+  - 动态内容加载（无限滚动、加载更多）
+  - 需要认证的页面
 
-- **Comprehensive data collection**
-  - Extract structured data from multiple pages
-  - Collect data across pagination
-  - Gather data requiring multiple interactions
-  - Build complete datasets from websites
+- **全面数据采集**
+  - 从多个页面提取结构化数据
+  - 跨分页收集数据
+  - 需要多次交互的数据采集
+  - 从网站构建完整数据集
 
-- **Complex page analysis**
-  - Pages with dynamic content or anti-bot measures
-  - Need to understand page structure before acting
-  - Identify data regions and extraction patterns
-  - Discover API endpoints and data sources
+- **复杂页面分析**
+  - 具有动态内容或反爬措施的页面
+  - 需要在操作前理解页面结构
+  - 识别数据区域和提取模式
+  - 发现API端点和数据源
 
-- **Building reusable patterns**
-  - Create website interaction templates
-  - Accumulate knowledge for future visits
-  - Share patterns across tasks
+- **构建可复用模式**
+  - 创建网站交互模板
+  - 积累知识以供未来访问
+  - 跨任务共享模式
 
-## When NOT to Use
+## 何时不使用
 
-❌ **DON'T use this skill when:**
+❌ **不使用此技能当：**
 
-- Simple single-page checks → use standard browser tool
-- Static content extraction → use web-fetch
-- API-based data access available → use API directly
-- User already logged in and just needs navigation → use browser-automation skill
-- Quick search or simple fetch → use web-search or web-fetch directly
+- 简单单页检查 → 使用标准浏览器工具
+- 静态内容提取 → 使用web-fetch
+- 可用API访问数据 → 直接使用API
+- 用户已登录只需导航 → 使用browser-automation skill
+- 快速搜索或简单获取 → 直接使用web-search或web-fetch
 
-## Prerequisites
+## 前置要求
 
-### Required Dependencies
+### 必需依赖
 
-**Primary Mode:**
-- **OpenCLI** - Browser automation tool
-  - Install: `pip install opencli` or follow OpenCLI installation guide
-  - Verify: `opencli --version`
-- **LLM Access** - For intelligent page analysis
-  - OpenAI API key or compatible LLM endpoint
-  - Verify: `opencli llm ask "test"`
+**主要模式：**
+- **OpenCLI** - 浏览器自动化工具
+  - 安装：`pip install opencli` 或遵循OpenCLI安装指南
+  - 验证：`opencli --version`
+- **LLM访问** - 用于智能页面分析
+  - OpenAI API密钥或兼容的LLM端点
+  - 验证：`opencli llm ask "test"`
 
-**Fallback Mode:**
-- **web-fetch tool** - For static content retrieval
-- **web-search tool** - For finding related pages
+**降级模式：**
+- **web-fetch工具** - 用于静态内容获取
+- **web-search工具** - 用于查找相关页面
 
-### Environment Setup
+### 环境设置
 
 ```bash
-# Initialize environment
+# 初始化环境
 python scripts/init_environment.py
 
-# Verify dependencies
+# 验证依赖
 python scripts/init_environment.py --check-deps
 ```
 
-## Core Capabilities
+## 核心能力
 
-### 1. LLM-Powered Analysis
+### 1. LLM驱动的分析
 
-Uses structured references in `reference/` directory:
+使用 `reference/` 目录中的结构化参考文档：
 
-- **Page Analysis** (`reference/page_analysis.md`)
-  - Page type identification
-  - Layout pattern detection
-  - Data region mapping
-  - Pagination discovery
+- **页面分析** (`reference/page_analysis.md`)
+  - 页面类型识别
+  - 布局模式检测
+  - 数据区域映射
+  - 分页发现
 
-- **Element Analysis** (`reference/element_analysis.md`)
-  - Interactivity detection
-  - Purpose inference
-  - Importance ranking
-  - Element grouping
+- **元素分析** (`reference/element_analysis.md`)
+  - 交互性检测
+  - 目的推断
+  - 重要性排序
+  - 元素分组
 
-- **Network Analysis** (`reference/network_analysis.md`)
-  - API endpoint discovery
-  - Data source identification
-  - Direct API potential assessment
+- **网络分析** (`reference/network_analysis.md`)
+  - API端点发现
+  - 数据源识别
+  - 直接API潜力评估
 
-### 2. Fallback Mechanism
+### 2. 降级机制
 
-When browser tools (OpenCLI, browser-automation) are unavailable, automatically falls back to:
+当浏览器工具（OpenCLI, browser-automation）不可用时，自动降级到：
 
-- **web-fetch** - Retrieve static page content
-- **web-search** - Find relevant pages and information
+- **web-fetch** - 获取静态页面内容
+- **web-search** - 查找相关页面和信息
 
-**Fallback Workflow:**
-1. Detect browser tool availability
-2. If unavailable → use web-fetch to get page content
-3. Use web-search to find related pages
-4. Apply same analysis references to fetched content
-5. Store results in pattern files
+**降级工作流：**
+1. 检测浏览器工具可用性
+2. 如果不可用 → 使用web-fetch获取页面内容
+3. 使用web-search查找相关页面
+4. 对获取的内容应用相同的分析参考
+5. 将结果存储到模式文件
 
-**Limitations of Fallback:**
-- Cannot interact with dynamic content
-- Cannot submit forms or click buttons
-- Cannot handle authentication
-- Limited to publicly accessible pages
+**降级限制：**
+- 无法与动态内容交互
+- 无法提交表单或点击按钮
+- 无法处理认证
+- 仅限于公开可访问的页面
 
-### 3. Memory System
+### 3. 记忆系统
 
-Markdown-based patterns in `browser-patterns/` directory:
+基于Markdown的模式存储在 `browser-patterns/` 目录：
 
 ```
 browser-patterns/
 ├── sites/
-│   ├── example.com.md    # Website patterns
-│   └── INDEX.md          # Pattern index
+│   ├── example.com.md    # 网站模式
+│   └── INDEX.md          # 模式索引
 └── plans/
-    ├── task-001.md       # Browsing plans
-    └── INDEX.md          # Plan index
+    ├── task-001.md       # 浏览计划
+    └── INDEX.md          # 计划索引
 ```
 
-### 4. Python Scripts
+### 4. Python脚本
 
-Helper scripts in `scripts/` directory:
+`scripts/` 目录中的辅助脚本：
 
-- `browser_operations.py` - Browser navigation and interaction operations
-- `file_operations.py` - Simple file manipulation utilities
-- `memory_manager.py` - Long-term pattern file management
-- `init_environment.py` - Environment setup
+- `browser_operations.py` - 浏览器导航和交互操作
+- `file_operations.py` - 简单的文件操作工具
+- `memory_manager.py` - 长期模式文件管理
+- `init_environment.py` - 环境设置
 
-## Usage
+## 使用方法
 
-### 1. Initialize Environment
+### 1. 初始化环境
 
 ```bash
 python scripts/init_environment.py
 ```
 
-Creates:
-- `browser-patterns/sites/` directory
-- `browser-patterns/plans/` directory
-- `states/` directory (for context isolation)
-- Index files
+创建：
+- `browser-patterns/sites/` 目录
+- `browser-patterns/plans/` 目录
+- `states/` 目录（用于上下文隔离）
+- 索引文件
 
-### 2. Context Isolation with State Files
+### 2. 使用状态文件进行上下文隔离
 
-**Key Concept**: Instead of keeping page state in memory, write it to files for better isolation.
+**核心概念**：将页面状态写入文件而不是保存在内存中，以实现更好的隔离。
 
 ```python
 from scripts.file_operations import FileOps
 
-# Simple file operations
+# 简单的文件操作
 FileOps.write("states/state-001.md", page_state_content)
 content = FileOps.read("states/state-001.md")
 
-# Replace section
+# 替换部分
 FileOps.replace_section(
     "states/state-001.md",
-    start_marker="## Page Elements",
-    end_marker="## Analysis",
+    start_marker="## 页面元素",
+    end_marker="## 分析结果",
     new_content=elements_table
 )
 
-# Replace by line numbers
+# 按行号替换
 FileOps.replace_lines(
     "states/state-001.md",
     start_line=10,
     end_line=15,
-    new_lines=["New line 1", "New line 2"]
+    new_lines=["新行 1", "新行 2"]
 )
 ```
 
-**Benefits**:
-- Agent doesn't need to remember all context
-- State persists across sessions
-- Can be reviewed/edited manually
-- Enables parallel processing of multiple pages
+**优势**：
+- 智能体不需要记住所有上下文
+- 状态跨会话持久化
+- 可以手动审查/编辑
+- 支持多页面并行处理
 
-### 3. Use References for Analysis
+### 3. 使用参考文档进行分析
 
-Agent reads reference files and creates structured state files:
+智能体读取参考文件并创建结构化的状态文件：
 
-**Step 1: Read Analysis Reference**
+**步骤1：读取分析参考**
 ```markdown
-Read reference/page_analysis.md
+读取 reference/page_analysis.md
 ```
 
-**Step 2: Apply to Page Content**
-- Analyze page structure using reference framework
-- Identify page type, layout, data regions
-- Generate structured JSON analysis
+**步骤2：应用到页面内容**
+- 使用参考框架分析页面结构
+- 识别页面类型、布局、数据区域
+- 生成结构化JSON分析
 
-**Step 3: Create State File**
+**步骤3：创建状态文件**
 ```markdown
-Use reference/page_state_template.md
-Create states/state-{id}.md with analysis results
+使用 reference/page_state_template.md
+创建 states/state-{id}.md 包含分析结果
 ```
 
-**Step 4: Update State File**
+**步骤4：更新状态文件**
 ```python
 FileOps.replace_section(
     "states/state-001.md",
-    "## Page Elements",
-    "## Analysis",
+    "## 页面元素",
+    "## 分析结果",
     elements_table
 )
 ```
 
-### 4. Save to Memory
+### 4. 保存到记忆
 
 ```python
 from scripts.memory_manager import MemoryManager
 
 manager = MemoryManager()
 
-# Create pattern file
+# 创建模式文件
 pattern_content = """# example.com
 
-> Domain: example.com
-> Created: 2026-04-28
+> 域名: example.com
+> 创建时间: 2026-04-28
 
-## Page Types
+## 页面类型
 
 ### listing
 
-- Product grid layout
-- Pagination controls
+- 商品网格布局
+- 分页控件
 
-## Selectors
+## 选择器
 
 - search_box: #search
 """
 
 manager.create_site_pattern("example.com", pattern_content)
 
-# Read pattern
+# 读取模式
 content = manager.read_site_pattern("example.com")
 
-# Search patterns
+# 搜索模式
 results = manager.search_patterns("product")
 
-# List all patterns
+# 列出所有模式
 patterns = manager.list_site_patterns()
 ```
 
-### 5. Browser Operations
+### 5. 浏览器操作
 
-**Reference**: See `reference/browser_operations_reference.md` for detailed operations guide.
+**参考**：详见 `reference/browser_operations_reference.md` 获取详细操作指南。
 
-**Core Operations:**
-- **Navigation**: open(), get_url(), get_title()
-- **State**: get_state(), extract()
-- **Interaction**: click(), type_text(), scroll()
-- **Data**: get_text(), screenshot()
-- **Network**: network()
+**核心操作：**
+- **导航**: open(), get_url(), get_title()
+- **状态**: get_state(), extract()
+- **交互**: click(), type_text(), scroll()
+- **数据**: get_text(), screenshot()
+- **网络**: network()
 
-**Code Example:**
+**代码示例：**
 ```python
 from scripts.browser_operations import DeepBrowser
 
 browser = DeepBrowser()
 
-# Open page
+# 打开页面
 browser.open("https://example.com")
 
-# Get state
+# 获取状态
 state = browser.get_state()
 
-# Interact
+# 交互
 browser.click(target=123)
 browser.type_text(target=456, text="query")
 
-# Extract
+# 提取
 data = browser.extract()
 ```
 
-### 6. Fallback Usage (When Browser Unavailable)
+### 6. 降级使用（当浏览器不可用时）
 
-When browser tools are not available, use web-fetch and web-search:
+当浏览器工具不可用时，使用web-fetch和web-search：
 
 ```markdown
-# Fallback workflow
-1. Try browser.open() → fails
-2. Detect browser unavailable
-3. Use web-fetch to get page content
-4. Use web-search to find related pages
-5. Apply analysis references to fetched content
-6. Store results in pattern files
+# 降级工作流
+1. 尝试 browser.open() → 失败
+2. 检测浏览器不可用
+3. 使用web-fetch获取页面内容
+4. 使用web-search查找相关页面
+5. 对获取的内容应用分析参考
+6. 将结果存储到模式文件
 ```
 
-**Example:**
+**示例：**
 ```markdown
-# Instead of browser interaction
+# 代替浏览器交互
 web-fetch url="https://example.com"
-→ Returns static HTML content
+→ 返回静态HTML内容
 
-# Search for related pages
+# 搜索相关页面
 web-search query="example.com products"
-→ Returns list of relevant URLs
+→ 返回相关URL列表
 
-# Analyze fetched content
-Read reference/page_analysis.md
-Apply to fetched HTML
-→ Returns structured analysis
+# 分析获取的内容
+读取 reference/page_analysis.md
+应用到获取的HTML
+→ 返回结构化分析
 ```
 
-**Note:** Fallback has limitations - cannot interact with dynamic content, forms, or authenticated pages.
+**注意**：降级有限制 - 无法与动态内容、表单或需要认证的页面交互。
 
-## Analysis Workflow
+## 分析工作流
 
-### Step 1: Create State File
+### 步骤1：创建状态文件
 
-1. Generate unique state ID
-2. Create state file in `states/` directory
-3. Initialize with basic structure
+1. 生成唯一状态ID
+2. 在 `states/` 目录创建状态文件
+3. 用基本结构初始化
 
-### Step 2: Capture Page State
+### 步骤2：捕获页面状态
 
-1. Open target URL
-2. Get page state
-3. Update state file with:
-   - Basic info (URL, title)
-   - Page elements (table format)
-   - Network requests
+1. 打开目标URL
+2. 获取页面状态
+3. 用以下内容更新状态文件：
+   - 基本信息（URL、标题）
+   - 页面元素（表格格式）
+   - 网络请求
 
-### Step 3: Apply Analysis References
+### 步骤3：应用分析参考
 
-1. Read `reference/page_analysis.md`
-2. Apply to page content
-3. Update state file with analysis results
+1. 读取 `reference/page_analysis.md`
+2. 应用到页面内容
+3. 用分析结果更新状态文件
 
-### Step 4: Generate Action Plan
+### 步骤4：生成行动计划
 
-1. Read `reference/element_analysis.md`
-2. Identify interactive elements
-3. Update state file with suggested actions
+1. 读取 `reference/element_analysis.md`
+2. 识别可交互元素
+3. 用建议操作更新状态文件
 
-### Step 5: Execute and Update
+### 步骤5：执行和更新
 
-1. Agent reads state file
-2. Executes suggested actions
-3. Updates state file with results
-4. Adds notes for observations
+1. 智能体读取状态文件
+2. 执行建议操作
+3. 用结果更新状态文件
+4. 添加观察备注
 
-### 6. Save to Long-term Memory
+### 步骤6：保存到长期记忆
 
-1. Extract patterns from state
-2. Save to pattern files
-3. Update statistics
+1. 从状态中提取模式
+2. 保存到模式文件
+3. 更新统计
 
-## Memory Format
+## 记忆格式
 
-### State File Structure
+### 状态文件结构
 
 ```markdown
-# Page State: state-001
+# 页面状态: state-001
 
-> State ID: state-001
-> Created: 2026-04-28T10:00:00Z
-> Updated: 2026-04-28T10:30:00Z
+> 状态ID: state-001
+> 创建时间: 2026-04-28T10:00:00Z
+> 更新时间: 2026-04-28T10:30:00Z
 
-## Basic Info
+## 基本信息
 
 - **URL**: https://example.com/products
-- **Title**: Product Listing
-- **Status**: analyzed
+- **标题**: 商品列表
+- **状态**: analyzed
 
-## Page Elements
+## 页面元素
 
-| Ref | Tag | Text | Visible | Role |
-|-----|-----|------|---------|------|
-| 1 | button | Search | ✓ | button |
+| 引用 | 标签 | 文本 | 可见 | 角色 |
+|------|------|------|------|------|
+| 1 | button | 搜索 | ✓ | button |
 | 2 | input | | ✓ | textbox |
-| 3 | a | Next Page | ✓ | link |
+| 3 | a | 下一页 | ✓ | link |
 
-## Analysis
+## 分析结果
 
-**Page Type**: listing (confidence: 0.95)
+**页面类型**: listing (置信度: 0.95)
 
-**Layout**: two-column
+**布局模式**: two-column
 
-### Data Regions
+### 数据区域
 
-- `.product-grid`: Main product listing
-- `.sidebar`: Filter options
+- `.product-grid`: 主商品列表
+- `.sidebar`: 筛选选项
 
-### Pagination
+### 分页机制
 
-- Type: click
-- Selector: `.next-page`
-- Description: Click to load next page
+- 类型: click
+- 选择器: `.next-page`
+- 描述: 点击加载下一页
 
-### Content Summary
+### 内容摘要
 
-- Topic: Product catalog
-- Language: en
-- Entities: products, categories
+- 主题: 商品目录
+- 语言: en
+- 实体: products, categories
 
-## Suggested Actions
+## 建议操作
 
 1. 🔴 **click**
-   - Target: `.search-button`
-   - Purpose: Submit search query
-   - Priority: high
+   - 目标: `.search-button`
+   - 目的: 提交搜索查询
+   - 优先级: high
 
 2. 🟡 **type**
-   - Target: `#search-input`
-   - Purpose: Enter search terms
-   - Priority: medium
+   - 目标: `#search-input`
+   - 目的: 输入搜索词
+   - 优先级: medium
 
-## Network Requests
+## 网络请求
 
-Total: 15 requests
+总计: 15 个请求
 
-| Method | URL | Type |
-|--------|-----|------|
+| 方法 | URL | 类型 |
+|------|-----|------|
 | GET | /api/products | application/json |
 | POST | /api/search | application/json |
 
-## Notes
+## 备注
 
-- Initial page load successful (10:00:05)
-- Found 50 products on first page (10:00:10)
+- 初始页面加载成功 (10:00:05)
+- 第一页发现50个商品 (10:00:10)
 ```
 
-### Pattern File Structure
+### 模式文件结构
 
 ```markdown
 # example.com
 
-> Domain: example.com
-> Learned: 2026-04-28T10:00:00Z
-> Last used: 2026-04-28T10:30:00Z
-> Success: 5 | Failure: 0
+> 域名: example.com
+> 学习时间: 2026-04-28T10:00:00Z
+> 最后使用: 2026-04-28T10:30:00Z
+> 成功: 5 | 失败: 0
 
-## Page Types
+## 页面类型
 
-<!-- Document discovered page types -->
+<!-- 记录发现的页面类型 -->
 
 ### listing
 
-**Indicators:**
-- Product grid layout
-- Pagination controls
+**识别特征：**
+- 商品网格布局
+- 分页控件
 
-**Data Regions:**
-| Selector | Type | Description |
-|----------|------|-------------|
-| .product-grid | product-list | Main listing |
+**数据区域：**
+| 选择器 | 类型 | 描述 |
+|--------|------|------|
+| .product-grid | product-list | 主列表 |
 
-**Pagination:**
-- Type: click
-- Selector: .next-page
+**分页：**
+- 类型: click
+- 选择器: .next-page
 
-## Selectors
+## 选择器
 
-| Name | Selector |
-|------|----------|
+| 名称 | 选择器 |
+|------|--------|
 | search_box | #search |
 | submit_btn | .search-btn |
 
-## Notes
+## 备注
 
-<!-- Add observations -->
+<!-- 添加观察 -->
 ```
 
-### Plan File Structure
+### 计划文件结构
 
 ```markdown
-# Browsing Plan: Collect product data
+# 浏览计划: 收集商品数据
 
-> Task ID: task-001
-> Goal: Collect product data
-> Depth: 0/3
-> Status: pending
-> Created: 2026-04-28T10:00:00Z
+> 任务ID: task-001
+> 目标: 收集商品数据
+> 深度: 0/3
+> 状态: pending
+> 创建时间: 2026-04-28T10:00:00Z
 
-## Progress
+## 进度
 
-- Total steps: 5
-- Completed: 2
-- In progress: 1
-- Pending: 2
+- 总步骤: 5
+- 已完成: 2
+- 进行中: 1
+- 待执行: 2
 
-## Steps
+## 步骤
 
-### Step 1: Navigate to listing ✅
+### 步骤1: 导航到列表 ✅
 
-- Action: open
-- Params: {"url": "https://example.com/products"}
-- Expected: Product listing page loaded
+- 操作: open
+- 参数: {"url": "https://example.com/products"}
+- 预期: 商品列表页加载完成
 
-### Step 2: Extract products ✅
+### 步骤2: 提取商品 ✅
 
-- Action: extract
-- Params: {"selector": ".product-item"}
-- Expected: Product data collected
+- 操作: extract
+- 参数: {"selector": ".product-item"}
+- 预期: 商品数据已收集
 
-## Collected Data
+## 已收集数据
 
-<!-- Add collected data -->
+<!-- 添加收集的数据 -->
 ```
 
-## Integration with Agent
+## 与智能体集成
 
-The agent uses this skill by:
+智能体通过以下方式使用此技能：
 
-1. **Reading reference** from `reference/` directory
-2. **Applying reference** to current context
-3. **Executing actions** via browser operations
-4. **Storing results** in pattern files
-5. **Learning patterns** for future use
+1. **读取参考** 从 `reference/` 目录
+2. **应用参考** 到当前上下文
+3. **执行操作** 通过浏览器操作
+4. **存储结果** 到模式文件
+5. **学习模式** 以供未来使用
 
-## Best Practices
+## 最佳实践
 
-1. **Always initialize** environment first
-2. **Read references** before analysis
-3. **Save patterns** after successful interactions
-4. **Update statistics** to track success rates
-5. **Use direct APIs** when discovered
-6. **Combine with standard tools** for simple cases
+1. **始终先初始化** 环境
+2. **分析前读取参考**
+3. **成功交互后保存模式**
+4. **更新统计** 以跟踪成功率
+5. **发现时使用直接API**
+6. **简单情况结合标准工具**
 
-## Limitations
+## 限制
 
-### Primary Mode (Browser Tools)
-- Requires OpenCLI or browser-automation tool
-- LLM needed for reference-based analysis
-- Pattern storage grows with site diversity
-- Initial analysis slower than keyword matching
+### 主要模式（浏览器工具）
+- 需要OpenCLI或browser-automation工具
+- 需要LLM进行基于参考的分析
+- 模式存储随网站多样性增长
+- 初始分析比关键词匹配慢
 
-### Fallback Mode (web-fetch + web-search)
-- Cannot interact with dynamic content
-- Cannot submit forms or click buttons
-- Cannot handle authentication
-- Limited to publicly accessible pages
-- No real-time page state monitoring
-- Cannot capture network requests
+### 降级模式（web-fetch + web-search）
+- 无法与动态内容交互
+- 无法提交表单或点击按钮
+- 无法处理认证
+- 仅限于公开可访问的页面
+- 无实时页面状态监控
+- 无法捕获网络请求
 
-## Related Skills
+## 相关技能
 
-### Primary Tools
-- `browser-automation` - Standard browser control
-- `web-fetch` - Simple content extraction
-- `web-search` - Search and find information
+### 主要工具
+- `browser-automation` - 标准浏览器控制
+- `web-fetch` - 简单内容提取
+- `web-search` - 搜索和查找信息
 
-### Fallback Tools
-- `web-fetch` + `web-search` - Alternative when browser unavailable
+### 降级工具
+- `web-fetch` + `web-search` - 浏览器不可用时的替代方案
 
-### Domain Skills
-- `market-research-collector` - Data collection workflows
+### 领域技能
+- `market-research-collector` - 数据采集工作流

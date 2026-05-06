@@ -9,6 +9,96 @@ allowed-tools: Bash(opencli:*), Read, Write, Edit
 
 网站探索器：给定需求，在网站中寻找数据所在位置、获取数据、形成记忆。
 
+## 相关 Skill
+
+本 Skill 专注**探索阶段**，以下 Skill 在流程的其他阶段发挥作用。Agent 可根据需要切换。
+
+### 协作流程图
+
+```
+用户需求
+  │
+  ├─ 模糊需求？ → smart-search → 找到目标网站
+  │
+  ▼
+deep-browser（本 Skill）
+  ├─ 探索网站结构
+  ├─ 发现 API 端点
+  ├─ 形成站点记忆
+  └─ 输出探索报告 + 适配器建议
+  │
+  ├─ 需要沉淀为 CLI？ → opencli-adapter-author
+  │                         ├─ 编写适配器
+  │                         └─ opencli browser verify
+  │
+  ├─ 适配器后续损坏？ → opencli-autofix
+  │
+  └─ 需要查阅命令？ → opencli-usage / opencli-browser
+```
+
+### opencli-browser
+
+**用途**：浏览器操作参考文档
+
+当需要查阅 `opencli browser *` 命令的详细说明时参考此 Skill。本 Skill 的浏览器操作命令均来自 opencli-browser 的定义。
+
+- 命令语法、参数、返回格式
+- match_level 容错机制
+- Compound 表单控件信息
+- 标签页管理和 lease 生命周期
+
+### opencli-adapter-author
+
+**用途**：将探索结果沉淀为可复用 CLI 适配器
+
+当 Deep Browser 完成探索、输出适配器建议后，Agent 可切换到此 Skill 将建议落地为实际的 CLI 命令。
+
+**衔接方式**：
+- Deep Browser 输出 → 探索报告 + 适配器建议（Strategy、endpoint、字段映射）
+- opencli-adapter-author 接收 → 编写适配器代码 → `opencli browser verify` 验证
+
+**关键流程**：
+```
+Deep Browser 探索报告
+  ├─ Pattern 分类 → adapter-author 的 site-recon 决策树输入
+  ├─ endpoints.json → adapter-author 的 endpoint 验证输入
+  ├─ field-map.json → adapter-author 的字段解码输入
+  └─ 适配器建议 → adapter-author 的 Strategy 选择依据
+```
+
+### opencli-usage
+
+**用途**：OpenCLI 命令总览和站点发现
+
+当需要了解 OpenCLI 有哪些可用命令、已有哪些站点适配器时参考此 Skill。
+
+- `opencli list` — 查看所有已安装的适配器
+- `opencli <site> -h` — 查看站点子命令
+- Strategy 标签（PUBLIC/COOKIE/HEADER/INTERCEPT/UI/LOCAL）
+
+**使用场景**：探索前先检查目标站点是否已有适配器，避免重复探索。
+
+### opencli-autofix
+
+**用途**：修复已损坏的适配器
+
+当基于 Deep Browser 探索结果生成的适配器在后续使用中失败时，使用此 Skill 自动诊断和修复。
+
+- SELECTOR 错误 → DOM 变化
+- EMPTY_RESULT → API 响应变化
+- API_ERROR → 端点迁移
+
+### smart-search
+
+**用途**：智能搜索路由
+
+当用户需求比较模糊时，先用此 Skill 路由到最佳搜索源，找到目标网站后再用 Deep Browser 深入探索。
+
+**衔接方式**：
+```
+用户模糊需求 → smart-search 找到目标网站列表 → Deep Browser 深入探索
+```
+
 ## 核心诉求
 
 给定一个相对抽象模糊的需求（或精细的需求），在一个网站中：
@@ -227,96 +317,6 @@ opencli browser type 5 "关键词" \
 - 字段映射: {field_map}
 ```
 
-## 相关 Skill
-
-本 Skill 专注**探索阶段**，以下 Skill 在流程的其他阶段发挥作用。Agent 可根据需要切换。
-
-### opencli-browser
-
-**用途**：浏览器操作参考文档
-
-当需要查阅 `opencli browser *` 命令的详细说明时参考此 Skill。本 Skill 的浏览器操作命令均来自 opencli-browser 的定义。
-
-- 命令语法、参数、返回格式
-- match_level 容错机制
-- Compound 表单控件信息
-- 标签页管理和 lease 生命周期
-
-### opencli-adapter-author
-
-**用途**：将探索结果沉淀为可复用 CLI 适配器
-
-当 Deep Browser 完成探索、输出适配器建议后，Agent 可切换到此 Skill 将建议落地为实际的 CLI 命令。
-
-**衔接方式**：
-- Deep Browser 输出 → 探索报告 + 适配器建议（Strategy、endpoint、字段映射）
-- opencli-adapter-author 接收 → 编写适配器代码 → `opencli browser verify` 验证
-
-**关键流程**：
-```
-Deep Browser 探索报告
-  ├─ Pattern 分类 → adapter-author 的 site-recon 决策树输入
-  ├─ endpoints.json → adapter-author 的 endpoint 验证输入
-  ├─ field-map.json → adapter-author 的字段解码输入
-  └─ 适配器建议 → adapter-author 的 Strategy 选择依据
-```
-
-### opencli-usage
-
-**用途**：OpenCLI 命令总览和站点发现
-
-当需要了解 OpenCLI 有哪些可用命令、已有哪些站点适配器时参考此 Skill。
-
-- `opencli list` — 查看所有已安装的适配器
-- `opencli <site> -h` — 查看站点子命令
-- Strategy 标签（PUBLIC/COOKIE/HEADER/INTERCEPT/UI/LOCAL）
-
-**使用场景**：探索前先检查目标站点是否已有适配器，避免重复探索。
-
-### opencli-autofix
-
-**用途**：修复已损坏的适配器
-
-当基于 Deep Browser 探索结果生成的适配器在后续使用中失败时，使用此 Skill 自动诊断和修复。
-
-- SELECTOR 错误 → DOM 变化
-- EMPTY_RESULT → API 响应变化
-- API_ERROR → 端点迁移
-
-### smart-search
-
-**用途**：智能搜索路由
-
-当用户需求比较模糊时，先用此 Skill 路由到最佳搜索源，找到目标网站后再用 Deep Browser 深入探索。
-
-**衔接方式**：
-```
-用户模糊需求 → smart-search 找到目标网站列表 → Deep Browser 深入探索
-```
-
-### 协作流程图
-
-```
-用户需求
-  │
-  ├─ 模糊需求？ → smart-search → 找到目标网站
-  │
-  ▼
-deep-browser（本 Skill）
-  ├─ 探索网站结构
-  ├─ 发现 API 端点
-  ├─ 形成站点记忆
-  └─ 输出探索报告 + 适配器建议
-  │
-  ├─ 需要沉淀为 CLI？ → opencli-adapter-author
-  │                         ├─ 编写适配器
-  │                         └─ opencli browser verify
-  │
-  ├─ 适配器后续损坏？ → opencli-autofix
-  │
-  └─ 需要查阅命令？ → opencli-usage / opencli-browser
-```
-
 ## 参考文档
 
 | 文档 | 用途 |
@@ -324,6 +324,7 @@ deep-browser（本 Skill）
 | [站点侦察](reference/site_recon.md) | Pattern A/B/C/D/E 分类和对应策略 |
 | [站点记忆](reference/site_memory.md) | 记忆格式和读写时机 |
 | [浏览器操作参考](reference/browser_operations_reference.md) | OpenCLI 命令详细说明 |
+| [云端配置](reference/cloud_setup.md) | Docker/Kubernetes 部署方案 |
 | [页面分析](reference/page_analysis.md) | 页面结构分析方法 |
 | [元素分析](reference/element_analysis.md) | 元素交互性和安全性判断 |
 | [网络分析](reference/network_analysis.md) | API 发现和数据源识别 |
@@ -336,6 +337,7 @@ deep-browser（本 Skill）
 - `file_operations.py` — 状态文件读写
 - `memory_manager.py` — 站点记忆管理
 - `init_environment.py` — 环境初始化（检查 opencli 可用性）
+- `cleanup_test_files.py` — 清理测试生成的临时文件
 
 ## 最佳实践
 

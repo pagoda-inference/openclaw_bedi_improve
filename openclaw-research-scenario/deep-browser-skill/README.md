@@ -1,195 +1,218 @@
 # Deep Browser Skill
 
-深度浏览器技能：通过交互式浏览发现网站完整内容结构，以只读方式深度探索网站。
+网站探索器：给定需求，在网站中寻找数据所在位置、获取数据、形成记忆。
 
-## 核心理念
+## 核心诉求
 
-Deep Browser 的核心目的是**通过交互/互动来获得下一层次网页的地址，进而获得网站的所有内容**。
+给定一个相对抽象模糊的需求（或精细的需求），在一个网站中：
 
-许多网页的内容并不会直接展示在初始页面上，而是需要通过交互才能展开：
-- 点击导航链接进入子页面
-- 展开折叠菜单发现隐藏内容
-- 滚动加载更多条目
-- 切换标签页查看不同分类
-- 触发下拉菜单获取选项
+1. **找到数据在哪里** — 数据在哪些页面？通过什么交互才能到达？
+2. **获取数据** — 数据是 API 返回的还是页面渲染的？怎么提取？
+3. **形成记忆** — 网站结构、数据分布、交互模式，供后续复用
 
-Deep Browser 通过系统化地与这些交互元素配合，逐层发现网站的完整内容结构，最终获取网站的全部可访问信息。
+## 在整体流程中的位置
 
-### 只读原则
+```
+用户粗糙需求
+    ↓
+web_search / deep research → 找到相关网站列表
+    ↓
+deep_browser → 探索网站结构，发现所有数据页面  ← 本 Skill
+    ↓
+opencli → 把探索结果沉淀为可复用 CLI 脚本
+    ↓
+CLI 提取数据 → 高效、确定性、可重复
+    ↓
+数据治理与分析 → 生成报告
+```
 
-⚠️ **重要约束：本技能以只读方式操作网站，禁止任何写入行为。**
-
-- ✅ **允许的操作**：点击导航链接、展开菜单、滚动页面、切换标签、筛选内容
-- ❌ **禁止的操作**：提交表单（注册、登录、联系表单等）、修改已有数据、发布内容、确认订单
-
-当遇到表单时，可以填写输入框以触发展示搜索结果等**读取行为**，但**绝不能点击提交按钮**完成表单提交。如果需要通过表单提交才能访问的内容，应记录该入口并在降级模式下说明限制。
+Deep Browser 专注**探索阶段**，不直接调用 opencli。两者通过 Agent 协调。
 
 ## 📁 目录结构
 
 ```
 deep-browser-skill/
-├── SKILL.md                              # Skill定义文件（智能体读取的入口）
+├── SKILL.md                              # Skill 定义文件（智能体读取的入口）
 ├── README.md                             # 项目说明文档
 ├── reference/                            # 参考文档
+│   ├── site_recon.md                     # 站点分类（Pattern A/B/C/D/E）
+│   ├── site_memory.md                    # 站点记忆格式
+│   ├── browser_operations_reference.md   # OpenCLI 命令参考
+│   ├── cloud_setup.md                    # 云端 OpenCLI 配置
 │   ├── page_analysis.md                  # 页面分析框架
 │   ├── element_analysis.md               # 元素分析框架
 │   ├── network_analysis.md               # 网络分析框架
-│   ├── page_state_template.md            # 页面状态模板
-│   └── browser_operations_reference.md   # 浏览器操作参考
-└── scripts/                              # Python工具脚本
-    ├── browser_operations.py             # 浏览器操作封装
-    ├── file_operations.py                # 文件操作工具
-    ├── memory_manager.py                 # 记忆管理工具
-    └── init_environment.py               # 环境初始化
+│   └── page_state_template.md            # 页面状态模板
+├── scripts/                              # Python 辅助脚本
+│   ├── file_operations.py                # 文件操作工具
+│   ├── memory_manager.py                 # 站点记忆管理
+│   └── init_environment.py               # 环境初始化
+└── cloud/                                # 云端部署配置
+    ├── Dockerfile                        # Docker 镜像定义
+    ├── docker-compose.yml                # Docker Compose 配置
+    ├── start.sh                          # 启动脚本
+    └── deploy.sh                         # 部署脚本
 ```
 
 ## 🎯 核心功能
 
-### 1. 逐层发现网站内容
+### 1. 站点分类（Pattern A/B/C/D/E）
 
-Deep Browser 的核心工作模式是**逐层探索**：
+| Pattern | 站点类型 | 数据位置 | 探索策略 |
+|---------|---------|---------|---------|
+| A | SPA / JSON XHR | API 端点 | network 优先 |
+| B | SSR / inline data | HTML 全局变量 + API | state 抽取 + network |
+| C | JSONP / script src | JSONP 接口 | bundle 搜索 |
+| D | Token / CSRF | 需鉴权 API | token 排查 |
+| E | 流式 | WebSocket/SSE | 找 HTTP 轮询 |
+
+一步诊断：`opencli browser analyze <url>`
+
+### 2. 逐层探索
+
+通过交互发现网站完整结构：
 
 ```
 入口页面
 ├── 导航链接 → 子页面1
-│   ├── 更多链接 → 孙页面1-1
-│   └── 更多链接 → 孙页面1-2
-├── 导航链接 → 子页面2
-│   └── 展开菜单 → 隐藏内容
+│   ├── API: GET /api/products
+│   └── 更多链接 → 孙页面1-1
 ├── 折叠区域 → 展开后内容
 └── 分页控件 → 第2页、第3页...
 ```
 
-每一层通过交互发现新的入口，再深入探索，直到覆盖网站所有可访问内容。
+### 3. API 发现
 
-### 2. 交互驱动的页面发现
+```bash
+opencli browser network              # 列出请求（带 shape 预览）
+opencli browser network --filter "title,price"  # 按字段过滤
+opencli browser network --detail r3  # 获取完整响应
+```
 
-通过以下交互方式发现隐藏的页面和内容：
+### 4. 站点记忆
 
-| 交互方式 | 发现的内容 | 示例 |
-|---------|-----------|------|
-| 点击导航链接 | 新的页面URL | 菜单项、面包屑、页脚链接 |
-| 展开折叠区域 | 隐藏的内容区块 | 手风琴、可展开面板 |
-| 滚动页面 | 动态加载的条目 | 无限滚动、懒加载 |
-| 切换标签页 | 不同分类的内容 | 选项卡、分类筛选 |
-| 触发下拉菜单 | 子菜单选项 | 导航下拉、选择器 |
-| 搜索输入 | 搜索结果页面 | 搜索框输入+搜索按钮 |
-| 分页导航 | 更多列表条目 | 下一页、页码按钮 |
+两层结构：公共种子 + 本地累积
 
-### 3. 智能页面理解
+```
+~/.opencli/sites/<site>/
+  endpoints.json     — 发现的 API 端点
+  field-map.json     — 字段代号 → 含义
+  notes.md           — 探索笔记
+  structure.md       — 网站结构
+```
 
-- 页面类型识别（列表页、详情页、搜索页等）
-- 布局模式检测（单列、双列、三列）
-- 数据区域映射（定位核心内容区域）
-- 分页机制发现（点击分页、滚动加载、加载更多）
+### 5. 只读约束
 
-### 4. 只读安全浏览
-
-所有操作遵循只读原则：
-- 导航类交互（点击链接、切换标签）→ ✅ 允许
-- 展示类交互（展开折叠、滚动加载）→ ✅ 允许
-- 搜索类交互（输入关键词、点击搜索）→ ✅ 允许（搜索是读取行为）
-- 表单提交类（注册、登录、联系表单提交）→ ❌ 禁止
-- 数据修改类（编辑、删除、确认订单）→ ❌ 禁止
-
-### 5. 可复用模式
-
-- 网站交互模板：记录特定网站的导航结构
-- 浏览知识积累：保存已发现的页面层级关系
-- 模式共享复用：跨任务共享网站探索经验
+- ✅ 允许：导航、展开、搜索、筛选、分页
+- ❌ 禁止：表单提交、数据修改、购买操作
 
 ## 🚀 快速开始
 
-### 1. 初始化环境
+### 方式一：本地开发（BrowserBridge 模式）
+
+复用用户已登录的 Chrome 浏览器。
 
 ```bash
+# 1. 安装 OpenCLI
+npm install -g @jackwener/opencli
+
+# 2. 安装 Browser Bridge 扩展
+# 在 Chrome Web Store 搜索 "OpenCLI" 安装扩展
+
+# 3. 验证环境
+opencli doctor
+
+# 4. 初始化
 cd openclaw-research-scenario/deep-browser-skill
 python scripts/init_environment.py
 ```
 
-### 2. 基本使用
+### 方式二：云端/容器（CDPBridge 模式）
 
-```python
-from scripts.browser_operations import DeepBrowser
-from scripts.file_operations import FileOps
-from scripts.memory_manager import MemoryManager
+无需 Chrome 扩展，直接连接 CDP WebSocket。
 
-browser = DeepBrowser()
-browser.open("https://example.com")
-state = browser.get_state()
+```bash
+# 1. 启动 Chromium（headless + CDP）
+chromium --headless --no-sandbox --remote-debugging-port=9222 &
 
-FileOps.write("states/state-001.md", page_content)
-content = FileOps.read("states/state-001.md")
+# 2. 设置环境变量
+export OPENCLI_CDP_ENDPOINT="http://localhost:9222"
 
-manager = MemoryManager()
-manager.create_site_pattern("example.com", pattern_content)
+# 3. 使用 OpenCLI
+opencli browser open "https://example.com"
 ```
 
-### 3. 逐层探索工作流
+**Docker 部署**：
 
+```bash
+# 使用 Docker Compose
+cd openclaw-research-scenario/deep-browser-skill/cloud
+docker-compose up -d
+
+# 测试
+docker exec opencli-browser opencli browser open "https://example.com"
 ```
-1. 打开入口页面
-2. 分析页面结构，识别所有可交互元素
-3. 对每个交互元素判断：
-   - 是导航/展示类 → 执行交互，发现新页面
-   - 是表单提交类 → 记录入口，不执行提交
-4. 对发现的新页面重复步骤2-3
-5. 直到覆盖所有可访问内容
-6. 将完整的网站结构保存到记忆
-```
+
+详见 [云端 OpenCLI 配置](reference/cloud_setup.md)。
 
 ## 📖 参考文档
 
-- [页面分析框架](reference/page_analysis.md) - 如何分析页面结构，识别内容层级
-- [元素分析框架](reference/element_analysis.md) - 如何识别可交互元素及其类型（导航类 vs 写入类）
-- [网络分析框架](reference/network_analysis.md) - 如何发现API端点和数据源
-- [页面状态模板](reference/page_state_template.md) - 标准化状态文件格式
-- [浏览器操作参考](reference/browser_operations_reference.md) - 详细的操作说明和只读约束
+| 文档 | 用途 |
+|------|------|
+| [站点侦察](reference/site_recon.md) | Pattern A/B/C/D/E 分类和对应策略 |
+| [站点记忆](reference/site_memory.md) | 记忆格式和读写时机 |
+| [浏览器操作参考](reference/browser_operations_reference.md) | OpenCLI 命令详细说明 |
+| [云端 OpenCLI 配置](reference/cloud_setup.md) | Docker/Kubernetes 部署方案 |
+| [页面分析](reference/page_analysis.md) | 页面结构分析方法 |
+| [元素分析](reference/element_analysis.md) | 元素交互性和安全性判断 |
+| [网络分析](reference/network_analysis.md) | API 发现和数据源识别 |
+| [页面状态模板](reference/page_state_template.md) | 状态文件标准格式 |
 
 ## 🔧 依赖
 
-### 主要模式
-- **OpenCLI** - 浏览器自动化工具
-- **LLM访问** - 智能页面分析
+### OpenCLI 连接模式
 
-### 降级模式
-- **web-fetch** - 静态内容获取
-- **web-search** - 页面搜索
+| 模式 | 环境变量 | 需要扩展 | 适用场景 |
+|------|---------|---------|---------|
+| BrowserBridge | 默认 | ✅ 需要 | 本地开发，复用用户浏览器 |
+| CDPBridge | `OPENCLI_CDP_ENDPOINT` | ❌ 不需要 | 云端/容器，无头模式 |
+
+### 降级方案
+
+| 优先级 | 工具 | 能力 |
+|--------|------|------|
+| 1 | OpenCLI | 完整：交互 + 网络分析 + 登录态 + 反检测 |
+| 2 | OpenClaw browser tool | 部分：交互可用，无登录态 |
+| 3 | web-fetch + web-search | 受限：仅静态内容 |
+
+## 🧪 测试
+
+```bash
+cd openclaw-research-scenario
+python tests/test_deep_browser_skill.py
+```
+
+详见测试方案章节。
 
 ## 📝 设计决策
 
-### 为什么强调"通过交互发现下一层"？
+### 为什么用 OpenCLI 而不是 OpenClaw browser tool？
 
-传统爬虫只能获取初始页面上的链接，无法发现需要交互才能展现的内容。Deep Browser 通过模拟用户交互，能够发现：
-- 折叠菜单中的隐藏链接
-- 动态加载的更多内容
-- 需要切换标签才能看到的分类
-- 搜索结果中的深层页面
+| 维度 | OpenCLI | OpenClaw browser tool |
+|------|---------|----------------------|
+| 登录态 | 复用用户 Chrome | 需单独管理 |
+| 反检测 | 内置 stealth | 无 |
+| 网络分析 | network + shape + filter | 无 |
+| 站点分析 | analyze 一步分类 | 无 |
+| 与 opencli 沉淀 | 同一浏览器，无缝衔接 | 不同浏览器 |
 
-### 为什么禁止表单提交？
+### 为什么 Deep Browser 不直接调用 opencli？
 
-Deep Browser 的定位是**只读探索工具**，其目标是获取信息而非修改信息。提交表单可能：
-- 在网站上创建真实数据（注册账号、提交订单）
-- 修改已有内容（编辑资料、删除数据）
-- 产生不可逆的副作用
+职责分离：
+- Deep Browser 专注**探索**（发现结构、记录模式）
+- opencli 专注**沉淀**（生成可复用 CLI）
+- 两者通过 Agent 协调，不直接互调
 
-对于需要登录才能访问的内容，应记录该入口并在降级说明中标注限制。
+### 为什么删除 browser_operations.py？
 
-## 🔄 后续工作
-
-这个skill目前作为设计原型存放在openclaw-research-scenario目录下。后续需要：
-
-1. **集成到OpenClaw Plugin系统**
-   - 遵循plugin规范
-   - 与其他工具集成
-   - 完善测试
-
-2. **优化和完善**
-   - 增强只读约束的检测
-   - 添加更多参考框架
-   - 优化性能
-
-3. **文档完善**
-   - 添加更多使用示例
-   - 创建教程文档
-   - 编写API文档
+浏览器操作由 OpenCLI 命令提供，Agent 通过 Bash 直接调用，不需要 Python 包装。

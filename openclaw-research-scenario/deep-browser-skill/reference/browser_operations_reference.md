@@ -1,246 +1,297 @@
 # 浏览器操作参考文档
 
-本文档提供浏览器操作的详细说明和使用模式，帮助智能体以只读方式通过交互发现网站内容。
+本文档提供 OpenCLI browser 命令的详细说明，帮助智能体正确操作浏览器。
 
 ## 核心原则
 
-Deep Browser 的核心目的是**通过交互获得下一层次网页的地址，进而获得网站的所有内容**。所有操作必须遵循只读约束。
+1. **先检查再操作** — 每次操作前获取 state，操作后重新获取
+2. **链式调用** — 用 `&&` 连接命令，保持会话上下文
+3. **只读约束** — 只执行导航/展示/搜索类操作，禁止写入
+4. **network 优先** — API 数据比 DOM 抓取更可靠
 
-### 只读操作分类
+## 环境检查
 
-| 操作类型 | 示例 | 判断 |
-|---------|------|------|
-| 导航类 | 点击链接、切换标签 | ✅ 允许 |
-| 展示类 | 展开折叠、滚动加载 | ✅ 允许 |
-| 搜索类 | 输入搜索词、点击搜索 | ✅ 允许 |
-| 筛选类 | 选择筛选条件、排序 | ✅ 允许 |
-| 提交类 | 注册、登录、联系表单提交 | ❌ 禁止 |
-| 修改类 | 编辑数据、删除操作 | ❌ 禁止 |
+```bash
+# 检查 OpenCLI 环境
+opencli doctor
 
-## 核心操作
-
-### 导航操作
-
-**open(url)**
-- 在浏览器中打开URL
-- 等待页面加载完成
-- 返回：`{"status": "opened", "url": url}`
-
-**get_url()**
-- 获取当前页面URL
-- 返回：URL字符串
-
-**get_title()**
-- 获取当前页面标题
-- 返回：标题字符串
-
-### 页面状态
-
-**get_state()**
-- 捕获当前页面状态
-- 返回：`{"elements": [...], "element_count": n, "has_more_below": bool}`
-- 元素包括：ref, tag, text, visible, role
-
-**extract()**
-- 提取页面内容
-- 返回：结构化内容对象
-
-### 交互操作
-
-**click(target)**
-- 通过引用编号点击元素
-- ⚠️ 点击前必须判断：该操作是导航/展示类还是写入类
-- 导航/展示类 → 允许点击
-- 写入类（如提交按钮）→ 禁止点击，仅记录
-- 返回：`{"status": "clicked", "target": ref}`
-
-**type_text(target, text)**
-- 在输入元素中输入文本
-- ✅ 搜索框输入 → 允许
-- ✅ 筛选条件输入 → 允许
-- ❌ 表单字段输入（配合提交）→ 不建议，因为后续可能误提交
-- 返回：`{"status": "typed", "target": ref, "text": text}`
-
-**scroll(direction, amount)**
-- 在指定方向滚动页面
-- Direction: "up" 或 "down"
-- Amount: 滚动像素数
-- 返回：`{"status": "scrolled", ...}`
-
-### 数据提取
-
-**get_text(selector)**
-- 获取元素的文本内容
-- Selector: CSS选择器字符串
-- 返回：文本内容字符串
-
-**screenshot(save_path)**
-- 截取当前页面截图
-- Save path: 保存图片的文件路径
-- 返回：`{"status": "captured", "path": path}`
-
-### 网络监控
-
-**network(filter_type)**
-- 捕获网络请求
-- Filter type: 可选的过滤字符串
-- 返回：网络请求列表
-
-## 使用模式
-
-### 模式1：逐层探索（核心模式）
-
-```
-1. open(入口URL)
-2. get_state() → 获取页面元素
-3. 分析元素，分类为：
-   ├─ 导航入口（链接、菜单）→ 记录URL
-   ├─ 展示交互（折叠、标签）→ 执行交互
-   ├─ 搜索/筛选 → 执行获取结果
-   └─ 写入操作（表单提交）→ 记录入口，不执行
-4. 执行安全交互，发现新内容
-5. 对发现的每个新URL，重复步骤1-4
-6. 保存完整的网站结构到记忆
+# 检查 OpenCLI 是否可用
+which opencli
 ```
 
-### 模式2：导航发现
+## 站点分析
 
-```
-1. get_state()
-2. 识别所有导航链接（a标签、导航菜单）
-3. 记录每个链接的目标URL
-4. 逐个访问新URL，发现更多内容
+```bash
+# 一步完成站点分类 + 反爬检测 + 建议下一步
+opencli browser analyze <url>
 ```
 
-### 模式3：动态内容发现
+返回 Pattern 分类（A/B/C/D/E）、反爬检测结果、SSR 全局变量、最近适配器匹配。
 
-```
-1. get_state()
-2. 识别可展开/折叠的元素
-3. click(展开按钮) → 发现隐藏内容
-4. scroll(down) → 加载更多条目
-5. get_state() → 获取新内容
-6. 记录新发现的导航入口
-```
+## 页面操作
 
-### 模式4：搜索探索
+### 打开页面
 
-```
-1. get_state()
-2. 查找搜索输入框
-3. type_text(search_input, query) → 输入搜索词
-4. click(search_button) → 执行搜索（搜索是读取行为）
-5. get_state() → 分析搜索结果
-6. 记录搜索结果中的新URL
+```bash
+opencli browser open "https://example.com"
 ```
 
-### 模式5：分页遍历
+### 获取页面快照
 
-```
-1. get_state()
-2. 提取当前页数据
-3. 识别下一页元素
-4. click(next_page_ref) → 加载下一页
-5. 等待加载
-6. 重复直到完成
+```bash
+opencli browser state
 ```
 
-## 表单处理策略
+返回文本树，带 `[N]` 数字引用。每个交互元素标注 ref，后续操作用 ref 定位。
 
-### 判断标准
+快照包含：
+- `[N]` 元素引用（用于 click/type/select）
+- `compounds (N):` sidecar（日期/选择/文件控件的结构化信息）
+- 滚动提示
+- 隐藏交互元素提示
 
-**核心判断**：表单提交的目的是获取/展示信息，还是创建/修改数据？
+### 查找元素
 
-| 表单类型 | 提交目的 | 处理方式 |
-|---------|---------|---------|
-| 搜索表单 | 获取搜索结果 | ✅ 允许输入和提交 |
-| 筛选表单 | 改变展示方式 | ✅ 允许选择和提交 |
-| 登录表单 | 创建会话 | ❌ 仅记录入口 |
-| 注册表单 | 创建账号 | ❌ 仅记录入口 |
-| 联系表单 | 发送消息 | ❌ 仅记录入口 |
-| 订单表单 | 产生交易 | ❌ 仅记录入口 |
-| 编辑表单 | 修改数据 | ❌ 仅记录入口 |
-
-### 处理流程
-
-```
-遇到表单时：
-1. 分析表单用途
-2. 判断是读取类还是写入类
-3. 如果是读取类（搜索/筛选）：
-   ├─ 可以填写输入框
-   └─ 可以点击提交按钮
-4. 如果是写入类（注册/登录/联系/订单）：
-   ├─ 不填写输入框
-   ├─ 不点击提交按钮
-   └─ 记录表单入口和用途
+```bash
+opencli browser find --css "button.submit" --limit 5
 ```
 
-## 错误处理
+返回匹配元素的 `{nth, ref, tag, role, text, attrs, visible, compound?}`。
 
-### 常见错误
+### 点击
 
-**元素未找到**
-- 原因：元素引用不存在
-- 解决：使用get_state()刷新状态
+```bash
+opencli browser click 3
+```
 
-**超时**
-- 原因：页面加载或操作耗时过长
-- 解决：增加超时时间或检查网络
+返回 `{clicked, target, matches_n, match_level}`。
 
-**浏览器无响应**
-- 原因：浏览器崩溃或冻结
-- 解决：重启浏览器会话
+### 输入文本
 
-### 恢复策略
+```bash
+opencli browser type 5 "搜索关键词"
+```
 
-1. **状态刷新**：调用get_state()获取当前元素引用
-2. **重试**：使用新状态重试失败的操作
-3. **降级**：如果浏览器不可用，使用web-fetch
+返回 `{typed, text, target, matches_n, match_level, autocomplete}`。
 
-## 最佳实践
+`autocomplete: true` 表示出现了自动补全弹窗，需要 `keys Enter` 或点击建议项。
 
-1. **交互前始终判断安全性**
-   - 每次点击前判断：这是导航/展示类还是写入类
-   - 只执行只读操作
+### 选择下拉选项
 
-2. **交互前始终检查状态**
-   - 页面更新后元素可能改变
-   - 使用get_state()刷新引用
+```bash
+opencli browser select 12 "选项文本"
+```
 
-3. **等待页面稳定**
-   - 点击后等待页面稳定
-   - 检查加载指示器
+### 按键
 
-4. **优先发现导航入口**
-   - 每个页面的首要任务是发现所有导航入口
-   - 记录每个入口指向的URL
-   - 逐层深入探索
+```bash
+opencli browser keys Enter
+opencli browser keys Escape
+opencli browser keys "Control+a"
+```
 
-5. **记录写入类入口**
-   - 遇到写入类元素时，记录其存在和用途
-   - 不执行但保留信息供参考
+### 滚动
 
-6. **处理动态内容**
-   - 滚动以加载更多内容
-   - 等待AJAX请求完成
-   - 展开折叠区域发现隐藏内容
+```bash
+opencli browser scroll down
+opencli browser scroll down --amount 500
+opencli browser scroll up
+```
 
-7. **验证操作**
-   - 交互后验证预期结果
-   - 使用get_state()或get_url()确认
+## 数据获取
 
-## 限制
+### 获取页面信息
 
-- 无法与系统级对话框交互
-- 对浏览器设置的控制有限
-- 可能无法处理所有反爬措施
-- 需要启用JavaScript的浏览器
-- 无法执行任何写入操作（表单提交、数据修改等）
-- 无法访问需要登录的页面
+```bash
+opencli browser get title
+opencli browser get url
+```
 
-## 相关参考
+### 获取元素数据
 
-- [页面分析参考](page_analysis.md)
-- [元素分析参考](element_analysis.md)
-- [网络分析参考](network_analysis.md)
+```bash
+opencli browser get text 3
+opencli browser get value 5
+opencli browser get attributes 3
+```
+
+返回 `{value, matches_n, match_level}`。
+
+### 提取页面内容
+
+```bash
+opencli browser extract --chunk-size 8000
+```
+
+返回 `{url, title, content, total_chars, next_start_char}`。循环 `next_start_char` 直到 `null`。
+
+### 获取 HTML
+
+```bash
+opencli browser get html --selector ".content" --as json --depth 3 --children-max 20
+```
+
+注意：HTML 输出可能很大，务必加 `--selector` 和预算参数。
+
+## 网络分析
+
+### 列出网络请求
+
+```bash
+opencli browser network
+```
+
+返回每个请求的 `{key, method, status, url, ct, size, shape}`。
+
+- `key`：稳定引用（用于 `--detail`）
+- `shape`：响应体的路径→类型映射（不含原 body，省 token）
+- 默认过滤静态资源/埋点/追踪
+
+### 按字段过滤
+
+```bash
+opencli browser network --filter "title,price,author"
+```
+
+AND 语义：必须每个字段都作为 shape 路径出现才保留。
+
+### 获取完整响应
+
+```bash
+opencli browser network --detail <key>
+```
+
+### 包含所有请求
+
+```bash
+opencli browser network --all
+```
+
+## 等待
+
+```bash
+# 等待元素出现
+opencli browser wait selector ".content" --timeout 10000
+
+# 等待文本出现
+opencli browser wait text "搜索结果" --timeout 10000
+
+# 硬等待（最后手段）
+opencli browser wait time 3
+```
+
+默认超时 10000ms。SPA 路由、登录跳转、懒加载列表需要 wait。
+
+## 标签页管理
+
+```bash
+opencli browser tab list          # 列出标签页
+opencli browser tab new [url]     # 新建标签页
+opencli browser tab select [id]   # 切换标签页
+opencli browser tab close [id]    # 关闭标签页
+opencli browser close             # 释放当前自动化标签页
+```
+
+## match_level 容错
+
+| level | 含义 | 处理 |
+|-------|------|------|
+| `exact` | 完全匹配 | 直接继续 |
+| `stable` | 软属性漂移 | 操作仍有效，建议验证 |
+| `reidentified` | 原引用消失，找到替代 | 需要二次确认 |
+
+## Compound 表单控件
+
+state 快照的 `compounds` sidecar 提供结构化信息：
+
+**日期控件**：
+```json
+{ "control": "date", "format": "YYYY-MM-DD", "current": "2026-04-29" }
+```
+
+**选择控件**：
+```json
+{ "control": "select", "options": [{ "label": "选项1", "value": "1" }], "options_total": 50 }
+```
+
+**文件控件**：
+```json
+{ "control": "file", "accept": "image/*", "multiple": false }
+```
+
+不要用正则猜测格式，直接用 compound 信息。
+
+## 结构化错误码
+
+| code | 含义 | 处理 |
+|------|------|------|
+| `not_found` | 数字引用不在 DOM 中 | 重新 state |
+| `stale_ref` | 引用存在但元素已变化 | 重新 state |
+| `selector_not_found` | CSS 匹配 0 元素 | 换选择器 |
+| `selector_ambiguous` | CSS 匹配多个元素 | 加 `--nth` |
+
+## 常见模式
+
+### 探索新页面
+
+```bash
+opencli browser open "https://example.com" \
+  && opencli browser state \
+  && opencli browser network
+```
+
+### 交互后重新获取
+
+```bash
+opencli browser click 3 \
+  && opencli browser wait selector ".content" \
+  && opencli browser state
+```
+
+### 搜索
+
+```bash
+opencli browser type 5 "关键词" \
+  && opencli browser keys Enter \
+  && opencli browser wait text "结果" \
+  && opencli browser state \
+  && opencli browser network
+```
+
+### 分页遍历
+
+```bash
+opencli browser click 8 \
+  && opencli browser wait time 2 \
+  && opencli browser state
+```
+
+### API 发现
+
+```bash
+opencli browser network \
+  && opencli browser network --filter "title,price" \
+  && opencli browser network --detail <key>
+```
+
+## 降级方案
+
+当 OpenCLI 不可用时，使用 OpenClaw browser tool：
+
+| OpenCLI | OpenClaw browser tool |
+|---------|----------------------|
+| `opencli browser open <url>` | `action="open"` |
+| `opencli browser state` | `action="snapshot"` |
+| `opencli browser click <ref>` | `action="act", kind="click"` |
+| `opencli browser type <ref> <text>` | `action="act", kind="type"` |
+| `opencli browser network` | `action="snapshot"` + 观察 |
+
+OpenClaw browser tool 无 network 分析和 analyze 功能，能力受限。
+
+## 注意事项
+
+- 不要跨页面复用 ref — 导航后必须重新 state
+- 不要用 `eval` 执行写入操作 — 用结构化 click/type/select
+- 截图消耗大量 token — 优先用 state
+- `network` 默认过滤静态资源 — 缺失时用 `--all`
+- `type` 后检查 `autocomplete` — 可能需要额外操作

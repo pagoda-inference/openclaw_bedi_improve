@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  opencli-browser:
+    build: .
+    container_name: opencli-browser
+    ports:
+      - "9222:9222"
+    environment:
+      - OPENCLI_CDP_ENDPOINT=http://localhost:9222
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    shm_size: '2gb'
